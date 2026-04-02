@@ -35,43 +35,55 @@ services:
     networks:
       - swing-trade-network
 
-  # FastAPI backend (uncomment when backend Dockerfile is ready)
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   container_name: swing-trade-backend
-  #   environment:
-  #     DATABASE_URL: postgresql://postgres:postgres_password@postgres:5432/swing_trade
-  #     REDIS_URL: redis://redis:6379/0
-  #     SECRET_KEY: ${SECRET_KEY}
-  #     ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-  #   ports:
-  #     - "8000:8000"
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   networks:
-  #     - swing-trade-network
-  #   volumes:
-  #     - ./backend:/app
+  # FastAPI backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: swing-trade-backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres_password@postgres:5432/swing_trade
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-prod}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-change-in-prod}
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - swing-trade-network
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/migrations:/app/migrations
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
-  # React frontend (uncomment when frontend Dockerfile is ready)
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: swing-trade-frontend
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - backend
-  #   networks:
-  #     - swing-trade-network
-  #   environment:
-  #     VITE_API_URL: http://backend:8000
+  # React frontend (Vite dev server)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: swing-trade-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - swing-trade-network
+    environment:
+      VITE_API_URL: http://backend:8000
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+    restart: unless-stopped
 
 volumes:
   postgres_data:

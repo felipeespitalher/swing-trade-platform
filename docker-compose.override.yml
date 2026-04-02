@@ -1,0 +1,31 @@
+# Development overrides for docker-compose.yml
+# This file is automatically loaded by Docker Compose and provides development-specific settings
+# such as verbose logging and volume mounts for hot reload.
+
+services:
+  postgres:
+    environment:
+      POSTGRES_INITDB_ARGS: ""
+
+  redis:
+    # No custom command needed for development
+
+  backend:
+    environment:
+      PYTHONUNBUFFERED: 1
+      API_DEBUG: "true"
+      LOG_LEVEL: DEBUG
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/migrations:/app/migrations
+    ports:
+      - "8000:8000"
+
+  frontend:
+    environment:
+      VITE_API_URL: http://localhost:8000
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/tsconfig.app.json:/app/tsconfig.app.json
+      - ./frontend/vite.config.ts:/app/vite.config.ts

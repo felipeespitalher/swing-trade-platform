@@ -1,0 +1,57 @@
+"""
+Application configuration settings.
+
+Handles environment-based configuration for the Swing Trade Platform API.
+"""
+
+from pydantic_settings import BaseSettings
+from datetime import timedelta
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    # Application info
+    app_name: str = "Swing Trade Automation Platform API"
+    app_version: str = "0.1.0"
+    debug: bool = False
+
+    # Database
+    database_url: str = "postgresql://postgres:postgres_password@localhost:5432/swing_trade"
+
+    # JWT Configuration
+    secret_key: str = "your-secret-key-change-in-production"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+    refresh_token_expire_days: int = 7
+
+    # Email Configuration (for development: mock via console)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = "noreply@swingtrade.local"
+    smtp_from_name: str = "Swing Trade Platform"
+
+    # Development
+    environment: str = "development"
+
+    class Config:
+        """Pydantic settings configuration."""
+
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+    @property
+    def access_token_expire(self) -> timedelta:
+        """Get access token expiration as timedelta."""
+        return timedelta(minutes=self.access_token_expire_minutes)
+
+    @property
+    def refresh_token_expire(self) -> timedelta:
+        """Get refresh token expiration as timedelta."""
+        return timedelta(days=self.refresh_token_expire_days)
+
+
+# Global settings instance
+settings = Settings()

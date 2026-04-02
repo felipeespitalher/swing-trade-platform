@@ -12,6 +12,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api import auth, users
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -95,6 +97,11 @@ async def general_exception_handler(request, exc: Exception):
         status_code=500,
         content={"detail": "Internal server error"},
     )
+
+
+# Include API routers
+app.include_router(auth.router)
+app.include_router(users.router)
 
 
 if __name__ == "__main__":

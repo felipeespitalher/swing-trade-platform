@@ -1,0 +1,293 @@
+"""
+Authentication service layer.
+
+Provides business logic for:
+- User registration
+- User login
+- Email verification
+- Token management
+- Token refresh
+"""
+
+import logging
+import secrets
+import uuid
+from typing import Optional, Tuple
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+
+from app.models import User
+from app.schemas.auth import UserRegister, UserLogin
+from app.core.security import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    PasswordValidator,
+    verify_token,
+)
+from app.services.email_service import EmailService
+
+logger = logging.getLogger(__name__)
+
+
+class AuthService:
+    """Service for handling authentication operations."""
+
+    @staticmethod
+    def register_user(
+        db: Session,
+        registration_data: UserRegister,
+    ) -> Tuple[Optional[User], Optional[str]]:
+        """
+        Register a new user.
+
+        Args:
+            db: Database session
+            registration_data: User registration data
+
+        Returns:
+            Tuple of (User object, error message)
+            Returns (user, None) on success
+            Returns (None, error_message) on failure
+        """
+        # Validate password strength
+        is_valid, error_msg = PasswordValidator.validate(registration_data.password)
+        if not is_valid:
+            return None, error_msg
+
+        # Check if user already exists
+        existing_user = db.query(User).filter(User.email == registration_data.email).first()
+        if existing_user:
+            return None, "Email already registered"
+
+        try:
+            # Generate verification token
+            verification_token = secrets.token_urlsafe(32)
+
+            # Create new user
+            new_user = User(
+                id=uuid.uuid4(),
+                email=registration_data.email.lower(),
+                password_hash=hash_password(registration_data.password),
+                first_name=registration_data.first_name,
+                last_name=registration_data.last_name,
+                email_verification_token=verification_token,
+                is_email_verified=False,
+            )
+
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+
+            # Send verification email
+            email_sent = EmailService.send_verification_email(
+                email=new_user.email,
+                user_id=str(new_user.id),
+                verification_token=verification_token,
+                first_name=new_user.first_name,
+            )
+
+            if not email_sent:
+                logger.warning(
+                    f"Verification email failed to send for user {new_user.id}, "
+                    "but user was created successfully"
+                )
+
+            logger.info(f"New user registered: {new_user.email}")
+            return new_user, None
+
+        except IntegrityError as e:
+            db.rollback()
+            logger.error(f"Database integrity error during registration: {e}")
+            return None, "Email already registered"
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Unexpected error during registration: {e}")
+            return None, "Registration failed. Please try again."
+
+    @staticmethod
+    def login_user(
+        db: Session,
+        login_data: UserLogin,
+    ) -> Tuple[Optional[Tuple[str, str]], Optional[str]]:
+        """
+        Authenticate a user and issue tokens.
+
+        Args:
+            db: Database session
+            login_data: User login credentials
+
+        Returns:
+            Tuple of (tokens, error_message)
+            Returns ((access_token, refresh_token), None) on success
+            Returns (None, error_message) on failure
+        """
+        try:
+            # Find user by email
+            user = db.query(User).filter(User.email == login_data.email.lower()).first()
+
+            if not user:
+                logger.warning(f"Login attempt for non-existent user: {login_data.email}")
+                return None, "Invalid email or password"
+
+            # Check if email is verified
+            if not user.is_email_verified:
+                logger.warning(f"Login attempt with unverified email: {login_data.email}")
+                return None, "Please verify your email before logging in"
+
+            # Verify password
+            if not verify_password(login_data.password, user.password_hash):
+                logger.warning(f"Failed login attempt for user: {login_data.email}")
+                return None, "Invalid email or password"
+
+            # Create tokens
+            access_token = create_access_token(
+                user_id=str(user.id),
+                email=user.email,
+            )
+            refresh_token = create_refresh_token(
+                user_id=str(user.id),
+                email=user.email,
+            )
+
+            logger.info(f"User logged in successfully: {user.email}")
+            return (access_token, refresh_token), None
+
+        except Exception as e:
+            logger.error(f"Error during login: {e}")
+            return None, "Login failed. Please try again."
+
+    @staticmethod
+    def verify_email(
+        db: Session,
+        verification_token: str,
+    ) -> Tuple[Optional[User], Optional[str]]:
+        """
+        Verify a user's email address.
+
+        Args:
+            db: Database session
+            verification_token: Email verification token
+
+        Returns:
+            Tuple of (User object, error message)
+            Returns (user, None) on success
+            Returns (None, error_message) on failure
+        """
+        try:
+            # Find user by verification token
+            user = db.query(User).filter(
+                User.email_verification_token == verification_token
+            ).first()
+
+            if not user:
+                logger.warning(f"Invalid verification token attempted")
+                return None, "Invalid or expired verification token"
+
+            # Mark email as verified
+            user.is_email_verified = True
+            user.email_verification_token = None
+
+            db.commit()
+            db.refresh(user)
+
+            logger.info(f"Email verified for user: {user.email}")
+            return user, None
+
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error verifying email: {e}")
+            return None, "Email verification failed. Please try again."
+
+    @staticmethod
+    def refresh_access_token(
+        db: Session,
+        refresh_token: str,
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Generate a new access token from a refresh token.
+
+        Args:
+            db: Database session
+            refresh_token: JWT refresh token
+
+        Returns:
+            Tuple of (access_token, error_message)
+            Returns (access_token, None) on success
+            Returns (None, error_message) on failure
+        """
+        try:
+            # Verify refresh token
+            token_payload = verify_token(refresh_token, token_type="refresh")
+
+            if not token_payload:
+                logger.warning("Invalid refresh token")
+                return None, "Invalid or expired refresh token"
+
+            # Find user
+            try:
+                user_id = uuid.UUID(token_payload.sub)
+            except (ValueError, AttributeError):
+                logger.warning(f"Invalid user ID in token: {token_payload.sub}")
+                return None, "Invalid token"
+
+            user = db.query(User).filter(User.id == user_id).first()
+
+            if not user:
+                logger.warning(f"User not found for refresh token: {token_payload.sub}")
+                return None, "User not found"
+
+            # Create new access token
+            new_access_token = create_access_token(
+                user_id=str(user.id),
+                email=user.email,
+            )
+
+            logger.info(f"Access token refreshed for user: {user.email}")
+            return new_access_token, None
+
+        except Exception as e:
+            logger.error(f"Error refreshing token: {e}")
+            return None, "Token refresh failed. Please login again."
+
+    @staticmethod
+    def get_current_user(
+        db: Session,
+        access_token: str,
+    ) -> Tuple[Optional[User], Optional[str]]:
+        """
+        Get the current authenticated user from access token.
+
+        Args:
+            db: Database session
+            access_token: JWT access token
+
+        Returns:
+            Tuple of (User object, error message)
+            Returns (user, None) on success
+            Returns (None, error_message) on failure
+        """
+        try:
+            # Verify access token
+            token_payload = verify_token(access_token, token_type="access")
+
+            if not token_payload:
+                return None, "Invalid or expired token"
+
+            # Find user
+            try:
+                user_id = uuid.UUID(token_payload.sub)
+            except (ValueError, AttributeError):
+                return None, "Invalid token"
+
+            user = db.query(User).filter(User.id == user_id).first()
+
+            if not user:
+                return None, "User not found"
+
+            return user, None
+
+        except Exception as e:
+            logger.error(f"Error getting current user: {e}")
+            return None, "Failed to get user information"

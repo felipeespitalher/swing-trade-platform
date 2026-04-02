@@ -1,0 +1,82 @@
+services:
+  # PostgreSQL database with TimescaleDB extension for time-series data
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: swing-trade-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+      POSTGRES_DB: swing_trade
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - swing-trade-network
+
+  # Redis for caching and real-time data
+  redis:
+    image: redis:7-alpine
+    container_name: swing-trade-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - swing-trade-network
+
+  # FastAPI backend (uncomment when backend Dockerfile is ready)
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: swing-trade-backend
+  #   environment:
+  #     DATABASE_URL: postgresql://postgres:postgres_password@postgres:5432/swing_trade
+  #     REDIS_URL: redis://redis:6379/0
+  #     SECRET_KEY: ${SECRET_KEY}
+  #     ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - swing-trade-network
+  #   volumes:
+  #     - ./backend:/app
+
+  # React frontend (uncomment when frontend Dockerfile is ready)
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: swing-trade-frontend
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - swing-trade-network
+  #   environment:
+  #     VITE_API_URL: http://backend:8000
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  swing-trade-network:
+    driver: bridge

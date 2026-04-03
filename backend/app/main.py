@@ -12,13 +12,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import auth, users, exchange_keys
+from app.api import auth, users, exchange_keys, health
+from app.core.logging import setup_logging
+from app.middleware.logging import LoggingMiddleware
+from app.services.monitoring import MonitoringService
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# Configure logging using structured logging setup
+logger = setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -42,26 +42,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add logging middleware (should be first in chain)
+app.add_middleware(LoggingMiddleware)
+
 # Configure CORS middleware for development
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-Request-ID"],
 )
 
 
-# Health check endpoint
-@app.get("/health")
-async def health_check() -> dict:
-    """
-    Health check endpoint.
-
-    Returns:
-        dict: Status indicator
-    """
-    return {"status": "ok"}
 
 
 # Root endpoint
@@ -103,6 +96,7 @@ async def general_exception_handler(request, exc: Exception):
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(exchange_keys.router)
+app.include_router(health.router)  # Health and metrics endpoints
 
 
 if __name__ == "__main__":

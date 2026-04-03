@@ -47,6 +47,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-prod}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-change-in-prod}
       PYTHONUNBUFFERED: 1
+      DEBUG: "true"
+      LOG_LEVEL: INFO
     ports:
       - "8000:8000"
     depends_on:
@@ -60,11 +62,16 @@ services:
       - ./backend/app:/app/app
       - ./backend/migrations:/app/migrations
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # React frontend (Vite dev server)
   frontend:

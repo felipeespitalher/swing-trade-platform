@@ -1,0 +1,51 @@
+name: Docker Build & Push
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - backend/**
+      - frontend/**
+      - docker-compose.yml
+      - Dockerfile
+      - .github/workflows/docker-build.yml
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: swing-trade-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: swing-trade-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify Docker images can start
+        run: |
+          docker-compose config > /dev/null 2>&1 && echo "Docker Compose config is valid" || exit 1

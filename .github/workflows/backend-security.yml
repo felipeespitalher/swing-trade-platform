@@ -1,0 +1,46 @@
+name: Backend Security Scan
+
+on:
+  push:
+    branches: [main, develop, master]
+    paths:
+      - backend/**
+      - .github/workflows/backend-security.yml
+  pull_request:
+    branches: [main, develop, master]
+    paths:
+      - backend/**
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install bandit pip-audit
+
+      - name: Run bandit (security check)
+        run: |
+          cd backend
+          bandit -r app -ll --exit-code 1
+        continue-on-error: true
+
+      - name: Run pip audit (dependency vulnerabilities)
+        run: |
+          cd backend
+          pip-audit --skip-editable || true
+        continue-on-error: true

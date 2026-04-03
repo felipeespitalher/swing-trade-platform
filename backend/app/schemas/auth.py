@@ -149,3 +149,106 @@ class RegistrationResponse(BaseModel):
                 "email": "user@example.com",
             }
         }
+
+
+class UserUpdate(BaseModel):
+    """Schema for updating user settings."""
+
+    first_name: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        description="User's first name",
+    )
+    last_name: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        description="User's last name",
+    )
+    timezone: Optional[str] = Field(
+        None,
+        description="IANA timezone (e.g., 'America/New_York', 'UTC', 'Europe/London')",
+    )
+    risk_limit_pct: Optional[float] = Field(
+        None,
+        ge=0.1,
+        le=100.0,
+        description="Risk limit percentage (0.1-100.0)",
+    )
+
+    class Config:
+        """Pydantic config."""
+
+        json_schema_extra = {
+            "example": {
+                "first_name": "John",
+                "last_name": "Smith",
+                "timezone": "America/New_York",
+                "risk_limit_pct": 5.0,
+            }
+        }
+
+
+class UserPasswordChange(BaseModel):
+    """Schema for changing user password."""
+
+    old_password: str = Field(
+        ...,
+        description="Current password",
+    )
+    new_password: str = Field(
+        ...,
+        min_length=8,
+        description="New password (must meet strength requirements)",
+    )
+
+    class Config:
+        """Pydantic config."""
+
+        json_schema_extra = {
+            "example": {
+                "old_password": "OldSecurePass123!",
+                "new_password": "NewSecurePass456!",
+            }
+        }
+
+
+class UserEmailChange(BaseModel):
+    """Schema for changing user email."""
+
+    new_email: EmailStr = Field(
+        ...,
+        description="New email address",
+    )
+    password: str = Field(
+        ...,
+        description="Current password for confirmation",
+    )
+
+    class Config:
+        """Pydantic config."""
+
+        json_schema_extra = {
+            "example": {
+                "new_email": "newemail@example.com",
+                "password": "SecurePass123!",
+            }
+        }
+
+
+class OperationResponse(BaseModel):
+    """Schema for operation response (success/failure)."""
+
+    success: bool = Field(..., description="Operation success status")
+    message: str = Field(..., description="Status message")
+
+    class Config:
+        """Pydantic config."""
+
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "message": "Operation completed successfully",
+            }
+        }

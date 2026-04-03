@@ -12,9 +12,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import auth, users, exchange_keys, health
+from app.api import auth, users, exchange_keys, health, audit
 from app.core.logging import setup_logging
 from app.middleware.logging import LoggingMiddleware
+from app.middleware.audit import AuditMiddleware
 from app.services.monitoring import MonitoringService
 
 # Configure logging using structured logging setup
@@ -44,6 +45,9 @@ app = FastAPI(
 
 # Add logging middleware (should be first in chain)
 app.add_middleware(LoggingMiddleware)
+
+# Add audit middleware (after logging)
+app.add_middleware(AuditMiddleware)
 
 # Configure CORS middleware for development
 app.add_middleware(
@@ -96,6 +100,7 @@ async def general_exception_handler(request, exc: Exception):
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(exchange_keys.router)
+app.include_router(audit.router)
 app.include_router(health.router)  # Health and metrics endpoints
 
 

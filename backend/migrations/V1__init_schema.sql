@@ -130,7 +130,8 @@ CREATE INDEX IF NOT EXISTS idx_ohlcv_exchange_symbol_time ON ohlcv(exchange, sym
 
 -- Enable compression policy for older data (older than 7 days)
 -- This reduces storage but maintains query performance
-SELECT add_compression_policy('ohlcv', INTERVAL '7 days', if_not_exists => TRUE);
+-- Note: Compression requires columnstore to be enabled
+-- Can be added later with: SELECT add_compression_policy('ohlcv', INTERVAL '7 days', if_not_exists => TRUE);
 
 -- ============================================================================
 -- TRADES TABLE

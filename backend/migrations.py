@@ -123,7 +123,12 @@ class MigrationRunner:
             self.cursor.execute(sql)
             if commit:
                 self.conn.commit()
-            return self.cursor.fetchall()
+            # Try to fetch results if available
+            try:
+                return self.cursor.fetchall()
+            except psycopg2.ProgrammingError:
+                # No results to fetch (e.g., CREATE TABLE, INSERT)
+                return []
         except psycopg2.Error as e:
             self.conn.rollback()
             logger.error(f"SQL Error: {e}")
@@ -132,8 +137,14 @@ class MigrationRunner:
     def init_history_table(self):
         """Initialize migration history table if not exists."""
         logger.info("Initializing migration history table...")
-        self.execute(CREATE_HISTORY_TABLE)
-        logger.info("✓ Migration history table ready")
+        try:
+            self.cursor.execute(CREATE_HISTORY_TABLE)
+            self.conn.commit()
+            logger.info("✓ Migration history table ready")
+        except psycopg2.Error as e:
+            self.conn.rollback()
+            logger.error(f"SQL Error: {e}")
+            raise
 
     def get_applied_migrations(self) -> Dict[int, Dict]:
         """Get all applied migrations."""
@@ -148,14 +159,19 @@ class MigrationRunner:
     def record_migration(self, version: int, description: str, script: str,
                         checksum: int, execution_time: int, success: bool):
         """Record applied migration in history."""
-        self.execute(f"""
-            INSERT INTO flyway_schema_history
-            (version, description, type, script, checksum, installed_by,
-             execution_time, success)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """, commit=True)
-        # Note: This would need proper parameterization in production
-        logger.info(f"✓ Recorded migration V{version}__{description}")
+        try:
+            self.cursor.execute("""
+                INSERT INTO flyway_schema_history
+                (version, description, type, script, checksum, installed_by,
+                 execution_time, success)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (version, description, "SQL", script, checksum, "python", execution_time, success))
+            self.conn.commit()
+            logger.info(f"✓ Recorded migration V{version}__{description}")
+        except psycopg2.Error as e:
+            self.conn.rollback()
+            logger.error(f"Failed to record migration: {e}")
+            raise
 
     def check_postgres_health(self) -> bool:
         """Check PostgreSQL connection and basic health."""

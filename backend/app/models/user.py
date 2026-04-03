@@ -34,6 +34,12 @@ class User(Base):
     exchange_keys = relationship(
         "ExchangeKey", back_populates="user", cascade="all, delete-orphan"
     )
+    strategies = relationship(
+        "Strategy", back_populates="user", cascade="all, delete-orphan"
+    )
+    audit_logs = relationship(
+        "AuditLog", back_populates="user", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         Index("idx_users_email", "email"),

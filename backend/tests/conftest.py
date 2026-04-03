@@ -9,10 +9,11 @@ Provides fixtures for:
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 import os
 import tempfile
+import logging
 
 from app.main import app
 from app.models import Base
@@ -20,6 +21,8 @@ from app.db.session import get_db
 from app.core.security import hash_password
 from app.models import User
 import uuid
+
+logger = logging.getLogger(__name__)
 
 # Module-level engine and session factory for test isolation
 test_engine = None
@@ -31,24 +34,65 @@ def db():
     """
     Create test database and session for each test.
 
-    Scope: function - creates new file-based DB for each test
+    Scope: function - creates new file-based DB for each test (SQLite)
+    or uses PostgreSQL if available.
     """
     global test_engine, TestingSessionLocal_global
 
-    # Create a unique test database file for this test
-    import tempfile
-    temp_db_fd, temp_db_path = tempfile.mkstemp(suffix=".db")
-    os.close(temp_db_fd)
+    # Try to use PostgreSQL for tests (better for RLS testing)
+    use_postgres = os.getenv("TEST_DATABASE_URL") or os.getenv("DATABASE_URL")
 
-    # Create test database
-    SQLALCHEMY_TEST_DATABASE_URL = f"sqlite:///{temp_db_path}"
-    test_engine = create_engine(
-        SQLALCHEMY_TEST_DATABASE_URL,
-        connect_args={"check_same_thread": False}
-    )
+    if use_postgres:
+        # Use PostgreSQL test database
+        SQLALCHEMY_TEST_DATABASE_URL = use_postgres
+        test_engine = create_engine(SQLALCHEMY_TEST_DATABASE_URL)
 
-    # Create all tables
-    Base.metadata.create_all(bind=test_engine)
+        # Truncate all tables before test (PostgreSQL only)
+        session_temp = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)()
+        try:
+            # Get all table names
+            result = session_temp.execute(
+                text("""
+                    SELECT tablename FROM pg_tables
+                    WHERE schemaname = 'public'
+                    AND tablename NOT LIKE 'flyway%'
+                    ORDER BY tablename
+                """)
+            )
+            tables = [row[0] for row in result]
+
+            # Disable RLS temporarily for truncation (needed to delete all rows)
+            for table in tables:
+                session_temp.execute(text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY"))
+
+            # Truncate all tables
+            for table in tables:
+                session_temp.execute(text(f"TRUNCATE TABLE {table} CASCADE"))
+
+            # Re-enable RLS
+            for table in tables:
+                session_temp.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+
+            session_temp.commit()
+        except Exception as e:
+            logger.warning(f"Failed to truncate PostgreSQL tables: {e}")
+            session_temp.rollback()
+        finally:
+            session_temp.close()
+    else:
+        # Fall back to SQLite
+        import tempfile
+        temp_db_fd, temp_db_path = tempfile.mkstemp(suffix=".db")
+        os.close(temp_db_fd)
+
+        SQLALCHEMY_TEST_DATABASE_URL = f"sqlite:///{temp_db_path}"
+        test_engine = create_engine(
+            SQLALCHEMY_TEST_DATABASE_URL,
+            connect_args={"check_same_thread": False}
+        )
+
+        # Create all tables for SQLite
+        Base.metadata.create_all(bind=test_engine)
 
     # Create session factory
     TestingSessionLocal_global = sessionmaker(
@@ -62,14 +106,20 @@ def db():
     yield session
 
     session.close()
-    Base.metadata.drop_all(bind=test_engine)
+
+    # Only drop tables for SQLite (in-memory/temp databases)
+    # For PostgreSQL, keep the database intact for inspection/debugging
+    if not use_postgres:
+        Base.metadata.drop_all(bind=test_engine)
+
     test_engine.dispose()
 
-    # Clean up temp file
-    try:
-        os.unlink(temp_db_path)
-    except:
-        pass
+    # Clean up temp file if SQLite
+    if not use_postgres and 'temp_db_path' in locals():
+        try:
+            os.unlink(temp_db_path)
+        except:
+            pass
 
 
 @pytest.fixture(scope="function")

@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import auth, users
+from app.api import auth, users, exchange_keys
 
 # Configure logging
 logging.basicConfig(
@@ -102,6 +102,7 @@ async def general_exception_handler(request, exc: Exception):
 # Include API routers
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(exchange_keys.router)
 
 
 if __name__ == "__main__":

@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
 
+    # Encryption Configuration
+    encryption_master_key: str = "your-encryption-master-key-change-in-production"
+
     # Email Configuration (for development: mock via console)
     smtp_host: str = ""
     smtp_port: int = 587

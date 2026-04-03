@@ -6,7 +6,7 @@ Defines the User entity with all authentication and profile fields.
 
 from sqlalchemy import Column, String, Boolean, DateTime, Numeric, Index
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
 import uuid
 
@@ -29,6 +29,11 @@ class User(Base):
     email_verification_token = Column(String, unique=True, nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    exchange_keys = relationship(
+        "ExchangeKey", back_populates="user", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         Index("idx_users_email", "email"),

@@ -6,6 +6,7 @@ uvicorn[standard]==0.24.0
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
 alembic==1.12.1
+sqlalchemy-timescaledb==0.4.1
 
 # Security and authentication
 python-jose[cryptography]==3.3.0
@@ -20,10 +21,26 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 email-validator==2.1.0
 
+# Trading and market data
+ccxt==4.5.46
+pandas==2.2.3
+# Requires libta-lib-dev system package (see Dockerfile)
+TA-Lib==0.6.8
+pandas-ta==0.3.14b0
+
+# Task queue and scheduling
+celery==5.6.3
+celery-redbeat==2.3.3
+flower==2.0.1
+
+# WebSocket
+websockets==13.1
+
 # Testing
 pytest==7.4.3
 pytest-cov==4.1.0
-pytest-asyncio==0.21.1
+pytest-asyncio==0.25.3
+pytest-mock==3.15.1
 httpx==0.25.1
 
 # Development
@@ -31,6 +48,10 @@ black==23.12.0
 isort==5.13.2
 flake8==6.1.0
 mypy==1.7.0
+
+# Redis (rate limiting, CSRF token storage, task broker)
+redis==5.2.1
+aioredis==2.0.1
 
 # Monitoring and logging
 python-json-logger==2.0.7

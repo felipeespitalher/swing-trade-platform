@@ -13,9 +13,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import auth, users, exchange_keys, health, audit
+from app.api import strategies
 from app.core.logging import setup_logging
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.audit import AuditMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.csrf import CSRFMiddleware
 from app.services.monitoring import MonitoringService
 
 # Configure logging using structured logging setup
@@ -48,6 +51,12 @@ app.add_middleware(LoggingMiddleware)
 
 # Add audit middleware (after logging)
 app.add_middleware(AuditMiddleware)
+
+# Add CSRF protection middleware
+app.add_middleware(CSRFMiddleware)
+
+# Add rate limiting middleware
+app.add_middleware(RateLimitMiddleware)
 
 # Configure CORS middleware for development
 app.add_middleware(
@@ -102,6 +111,7 @@ app.include_router(users.router)
 app.include_router(exchange_keys.router)
 app.include_router(audit.router)
 app.include_router(health.router)  # Health and metrics endpoints
+app.include_router(strategies.router)
 
 
 if __name__ == "__main__":

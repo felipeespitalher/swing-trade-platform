@@ -92,6 +92,56 @@ services:
       - ./frontend/index.html:/app/index.html
     restart: unless-stopped
 
+  celery-worker:
+    build: ./backend
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/swing_trade
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - swing-trade-network
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  celery-beat:
+    build: ./backend
+    command: celery -A app.tasks.celery_app beat --scheduler redbeat.RedBeatScheduler --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - REDBEAT_REDIS_URL=redis://redis:6379/2
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/swing_trade
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - swing-trade-network
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  flower:
+    build: ./backend
+    command: celery -A app.tasks.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - swing-trade-network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:

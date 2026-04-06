@@ -21,4 +21,4 @@ COPY backend/migrations ./migrations
 # Expose port
 EXPOSE 8000
 
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${API_PORT:-8000}

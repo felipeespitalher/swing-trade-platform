@@ -1,3 +1,5 @@
+import { api } from './api';
+
 export interface Strategy {
   id: string;
   name: string;
@@ -15,92 +17,112 @@ export interface Strategy {
   take_profit_pct: number;
 }
 
-const MOCK_STRATEGIES: Strategy[] = [
-  {
-    id: '1',
-    name: 'RSI Momentum BTC',
-    status: 'active',
-    win_rate: 0.65,
-    total_trades: 48,
-    last_run: '2026-04-02T10:00:00Z',
-    description: 'RSI oversold bounce strategy for Bitcoin',
-    symbols: ['BTC/USDT'],
-    timeframe: '4h',
-    entry_condition: 'RSI < 30 AND price above 200 SMA',
-    exit_condition: 'RSI > 60 OR stop loss hit',
-    stop_loss_pct: 3,
-    take_profit_pct: 8,
-    created_at: '2026-01-15T00:00:00Z',
-  },
-  {
-    id: '2',
-    name: 'MACD Cross ETH',
-    status: 'testing',
-    win_rate: 0.55,
-    total_trades: 12,
-    last_run: '2026-04-01T14:00:00Z',
-    description: 'MACD crossover strategy for Ethereum',
-    symbols: ['ETH/USDT', 'BTC/USDT'],
-    timeframe: '1d',
-    entry_condition: 'MACD line crosses signal line upward',
-    exit_condition: 'MACD line crosses signal line downward',
-    stop_loss_pct: 5,
-    take_profit_pct: 15,
-    created_at: '2026-02-20T00:00:00Z',
-  },
-  {
-    id: '3',
-    name: 'Volume Breakout ALT',
-    status: 'inactive',
+// Backend response shape
+interface BackendStrategy {
+  id: string;
+  name: string;
+  type: string;
+  config: Record<string, unknown>;
+  symbol: string;
+  timeframe: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+function toFrontend(s: BackendStrategy): Strategy {
+  return {
+    id: s.id,
+    name: s.name,
+    status: s.is_active ? 'active' : 'inactive',
     win_rate: null,
     total_trades: 0,
-    last_run: null,
-    description: 'Volume-based breakout for altcoins',
-    symbols: ['SOL/USDT', 'ADA/USDT'],
-    timeframe: '1h',
-    entry_condition: 'Volume > 2x average AND price breakout',
-    exit_condition: 'Volume drops below average',
-    stop_loss_pct: 4,
-    take_profit_pct: 12,
-    created_at: '2026-03-10T00:00:00Z',
-  },
-];
+    last_run: s.updated_at,
+    created_at: s.created_at,
+    description: s.config.description as string | undefined,
+    symbols: s.symbol ? [s.symbol] : ['BTC/USDT'],
+    timeframe: s.timeframe as '1h' | '4h' | '1d',
+    entry_condition: (s.config.entry_condition as string) ?? '',
+    exit_condition: (s.config.exit_condition as string) ?? '',
+    stop_loss_pct: (s.config.stop_loss_pct as number) ?? 3,
+    take_profit_pct: (s.config.take_profit_pct as number) ?? 8,
+  };
+}
+
+type CreateInput = Omit<Strategy, 'id' | 'created_at' | 'win_rate' | 'total_trades' | 'last_run'>;
+
+function toBackendCreate(data: CreateInput) {
+  return {
+    name: data.name,
+    type: 'rsi_macd',
+    symbol: data.symbols[0] ?? 'BTC/USDT',
+    timeframe: data.timeframe,
+    config: {
+      description: data.description ?? '',
+      entry_condition: data.entry_condition,
+      exit_condition: data.exit_condition,
+      stop_loss_pct: data.stop_loss_pct,
+      take_profit_pct: data.take_profit_pct,
+    },
+  };
+}
+
+function toBackendUpdate(data: Partial<CreateInput>) {
+  const payload: Record<string, unknown> = {};
+  if (data.name !== undefined) payload.name = data.name;
+  if (data.symbols !== undefined) payload.symbol = data.symbols[0] ?? 'BTC/USDT';
+  if (data.timeframe !== undefined) payload.timeframe = data.timeframe;
+
+  const configKeys = [
+    'description',
+    'entry_condition',
+    'exit_condition',
+    'stop_loss_pct',
+    'take_profit_pct',
+  ] as const;
+
+  const hasConfigUpdate = configKeys.some((k) => data[k] !== undefined);
+  if (hasConfigUpdate) {
+    const config: Record<string, unknown> = {};
+    for (const k of configKeys) {
+      if (data[k] !== undefined) config[k] = data[k];
+    }
+    payload.config = config;
+  }
+
+  return payload;
+}
 
 export const strategyService = {
   async list(): Promise<Strategy[]> {
-    return MOCK_STRATEGIES;
+    const { data } = await api.get<BackendStrategy[]>('/api/strategies');
+    return data.map(toFrontend);
   },
 
   async get(id: string): Promise<Strategy> {
-    const found = MOCK_STRATEGIES.find((s) => s.id === id);
-    if (!found) throw new Error(`Strategy ${id} not found`);
-    return found;
+    const { data } = await api.get<BackendStrategy>(`/api/strategies/${id}`);
+    return toFrontend(data);
   },
 
-  async create(
-    data: Omit<Strategy, 'id' | 'created_at' | 'win_rate' | 'total_trades' | 'last_run'>,
-  ): Promise<Strategy> {
-    return {
-      ...data,
-      id: Math.random().toString(36).slice(2),
-      win_rate: null,
-      total_trades: 0,
-      last_run: null,
-      created_at: new Date().toISOString(),
-    };
+  async create(input: CreateInput): Promise<Strategy> {
+    const { data } = await api.post<BackendStrategy>('/api/strategies', toBackendCreate(input));
+    return toFrontend(data);
   },
 
-  async update(id: string, data: Partial<Strategy>): Promise<Strategy> {
-    const existing = MOCK_STRATEGIES.find((s) => s.id === id) ?? MOCK_STRATEGIES[0];
-    return { ...existing, ...data, id };
+  async update(id: string, input: Partial<CreateInput>): Promise<Strategy> {
+    const { data } = await api.put<BackendStrategy>(
+      `/api/strategies/${id}`,
+      toBackendUpdate(input),
+    );
+    return toFrontend(data);
   },
 
-  async delete(_id: string): Promise<void> {
-    // mock: no-op
+  async delete(id: string): Promise<void> {
+    await api.delete(`/api/strategies/${id}`);
   },
 
   async toggle(id: string, status: 'active' | 'inactive'): Promise<Strategy> {
-    const existing = MOCK_STRATEGIES.find((s) => s.id === id) ?? MOCK_STRATEGIES[0];
-    return { ...existing, id, status };
+    const { data } = await api.patch<BackendStrategy>(`/api/strategies/${id}/status`, { status });
+    return toFrontend(data);
   },
 };

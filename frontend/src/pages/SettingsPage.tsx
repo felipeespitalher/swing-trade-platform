@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -17,6 +17,7 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { useTheme } from '@/context/ThemeContext';
 import { useNotification } from '@/hooks/useNotification';
+import { settingsService, type ExchangeKey } from '@/services/settingsService';
 
 const pageVariants = {
   initial: { opacity: 0, y: 10 },
@@ -56,27 +57,6 @@ const exchangeKeySchema = z.object({
   api_secret: z.string().min(10, 'API Secret inválido'),
 });
 type ExchangeKeyValues = z.infer<typeof exchangeKeySchema>;
-
-// ─── Mock exchange keys ───────────────────────────────────────────────────────
-interface MockExchangeKey {
-  id: string;
-  exchange: string;
-  label: string;
-  api_key_masked: string;
-  created_at: string;
-  is_active: boolean;
-}
-
-const MOCK_KEYS: MockExchangeKey[] = [
-  {
-    id: '1',
-    exchange: 'Binance',
-    label: 'Conta Principal',
-    api_key_masked: 'ABCD...WXYZ',
-    created_at: '2025-01-10',
-    is_active: true,
-  },
-];
 
 // ─── Mock audit log ───────────────────────────────────────────────────────────
 const AUDIT_LOG = [
@@ -148,11 +128,22 @@ function AccountTab() {
     },
   });
 
-  async function onSubmit() {
+  async function onSubmit(values: AccountValues) {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setSaving(false);
-    notify.success('Configurações salvas', 'Suas preferências foram atualizadas.');
+    try {
+      const parts = values.full_name.trim().split(/\s+/);
+      await settingsService.updateSettings({
+        first_name: parts[0] ?? '',
+        last_name: parts.slice(1).join(' ') || (parts[0] ?? ''),
+        timezone: values.timezone,
+        risk_limit_pct: values.risk_limit_pct,
+      });
+      notify.success('Configurações salvas', 'Suas preferências foram atualizadas.');
+    } catch {
+      notify.error('Erro', 'Não foi possível salvar as configurações.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -220,12 +211,16 @@ function AccountTab() {
 
 // ─── Exchange Keys Tab ────────────────────────────────────────────────────────
 function ExchangeKeysTab() {
-  const [keys, setKeys] = useState<MockExchangeKey[]>(MOCK_KEYS);
+  const [keys, setKeys] = useState<ExchangeKey[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showApiSecret, setShowApiSecret] = useState(false);
   const notify = useNotification();
+
+  useEffect(() => {
+    settingsService.listExchangeKeys().then(setKeys).catch(() => {});
+  }, []);
 
   const {
     register,
@@ -238,25 +233,27 @@ function ExchangeKeysTab() {
 
   async function onSubmit(values: ExchangeKeyValues) {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
-    const newKey: MockExchangeKey = {
-      id: crypto.randomUUID(),
-      exchange: values.exchange,
-      label: values.label,
-      api_key_masked: `${values.api_key.slice(0, 4)}...${values.api_key.slice(-4)}`,
-      created_at: new Date().toISOString().split('T')[0],
-      is_active: true,
-    };
-    setKeys((prev) => [...prev, newKey]);
-    setSaving(false);
-    setShowForm(false);
-    reset();
-    notify.success('Chave adicionada', `${values.exchange} conectada com sucesso.`);
+    try {
+      const newKey = await settingsService.addExchangeKey(values);
+      setKeys((prev) => [...prev, newKey]);
+      setShowForm(false);
+      reset();
+      notify.success('Chave adicionada', `${values.exchange} conectada com sucesso.`);
+    } catch {
+      notify.error('Erro', 'Não foi possível adicionar a chave.');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function handleDelete(id: string) {
-    setKeys((prev) => prev.filter((k) => k.id !== id));
-    notify.info('Chave removida', 'A chave de API foi desconectada.');
+  async function handleDelete(id: string) {
+    try {
+      await settingsService.deleteExchangeKey(id);
+      setKeys((prev) => prev.filter((k) => k.id !== id));
+      notify.info('Chave removida', 'A chave de API foi desconectada.');
+    } catch {
+      notify.error('Erro', 'Não foi possível remover a chave.');
+    }
   }
 
   return (
@@ -511,12 +508,17 @@ function SecurityTab() {
     resolver: zodResolver(passwordSchema),
   });
 
-  async function onSubmit() {
+  async function onSubmit(values: PasswordValues) {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setSaving(false);
-    reset();
-    notify.success('Senha alterada', 'Sua senha foi atualizada com sucesso.');
+    try {
+      await settingsService.changePassword(values.old_password, values.new_password);
+      reset();
+      notify.success('Senha alterada', 'Sua senha foi atualizada com sucesso.');
+    } catch {
+      notify.error('Erro', 'Senha atual incorreta ou nova senha inválida.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (

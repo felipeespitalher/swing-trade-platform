@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     smtp_from_email: str = "noreply@swingtrade.local"
     smtp_from_name: str = "Swing Trade Platform"
 
+    # Redis Configuration
+    redis_url: str = "redis://localhost:6379/0"
+
     # Development
     environment: str = "development"
 

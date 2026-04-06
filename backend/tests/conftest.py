@@ -29,6 +29,33 @@ test_engine = None
 TestingSessionLocal_global = None
 
 
+@pytest.fixture(autouse=True)
+def disable_security_middleware(monkeypatch, request):
+    """
+    Disable rate limiting and CSRF for all tests except those that
+    specifically test these features (test_rate_limiting, test_csrf).
+    """
+    module = getattr(request.module, "__name__", "") or ""
+    skip_modules = ("test_rate_limiting", "test_csrf", "test_integration")
+    if any(m in module for m in skip_modules):
+        yield
+        return
+
+    try:
+        from app.core.rate_limit import RateLimiter
+        monkeypatch.setattr(RateLimiter, "is_rate_limited", lambda *a, **kw: False)
+    except ImportError:
+        pass
+
+    try:
+        from app.core.csrf import CSRFManager
+        monkeypatch.setattr(CSRFManager, "validate_token", lambda *a, **kw: True)
+    except ImportError:
+        pass
+
+    yield
+
+
 @pytest.fixture(scope="function")
 def db():
     """

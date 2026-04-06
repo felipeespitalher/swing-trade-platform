@@ -9,7 +9,9 @@ Provides endpoints for:
 """
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.schemas.auth import (
@@ -186,3 +188,57 @@ async def refresh_token(
         refresh_token=token_data.refresh_token,
         token_type="bearer",
     )
+
+
+@router.get(
+    "/csrf-token",
+    status_code=status.HTTP_200_OK,
+    summary="Get CSRF Token",
+    description="Generate a one-time CSRF token for the authenticated session",
+)
+async def get_csrf_token(
+    authorization: Optional[str] = Header(None),
+):
+    """
+    Generate a CSRF token for the current authenticated user.
+
+    The token must be sent in the X-CSRF-Token header for all
+    state-changing requests (POST, PATCH, DELETE) when CSRF
+    protection is active.
+
+    Returns:
+        - **csrf_token**: One-time use CSRF token
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required to obtain CSRF token",
+        )
+
+    from app.core.security import verify_token
+
+    token = authorization.replace("Bearer ", "").strip()
+    payload = verify_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    try:
+        from app.core.config import settings
+        from redis import Redis
+        from app.core.csrf import CSRFManager
+
+        redis_client = Redis.from_url(
+            settings.redis_url, socket_connect_timeout=2, decode_responses=True
+        )
+        csrf_manager = CSRFManager(redis_client)
+        csrf_token = csrf_manager.generate_token(payload.sub)
+        return {"csrf_token": csrf_token}
+    except Exception as exc:
+        logger.warning(f"CSRF token generation failed: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CSRF service temporarily unavailable",
+        )

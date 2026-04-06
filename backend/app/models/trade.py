@@ -5,9 +5,9 @@ Defines the Trade entity for historical trades and paper trading records.
 """
 
 from sqlalchemy import Column, String, DateTime, ForeignKey, Numeric, Boolean, Index, CheckConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Uuid as UUID
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from app.models.user import Base
@@ -36,7 +36,7 @@ class Trade(Base):
     reason = Column(String(100), nullable=True)
     is_paper_trade = Column(Boolean, default=True, nullable=False)
     created_at = Column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
     # Relationship to Strategy

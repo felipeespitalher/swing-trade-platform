@@ -10,8 +10,9 @@ Provides business logic for:
 
 import logging
 import secrets
-from typing import Optional, Tuple
-from datetime import datetime
+import uuid as _uuid_module
+from typing import Optional, Tuple, Union
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -24,6 +25,13 @@ from app.core.security import (
 from app.services.email_service import EmailService
 
 logger = logging.getLogger(__name__)
+
+
+def _to_uuid(value) -> _uuid_module.UUID:
+    """Convert a string or UUID to a uuid.UUID object for SQLAlchemy queries."""
+    if isinstance(value, _uuid_module.UUID):
+        return value
+    return _uuid_module.UUID(str(value))
 
 
 class UserService:
@@ -44,7 +52,7 @@ class UserService:
             Returns (None, error_message) on failure
         """
         try:
-            user = db.query(User).filter(User.id == user_id).first()
+            user = db.query(User).filter(User.id == _to_uuid(user_id)).first()
 
             if not user:
                 return None, "User not found"
@@ -75,7 +83,7 @@ class UserService:
             Returns (None, error_message) on failure
         """
         try:
-            user = db.query(User).filter(User.id == user_id).first()
+            user = db.query(User).filter(User.id == _to_uuid(user_id)).first()
 
             if not user:
                 return None, "User not found"
@@ -89,19 +97,19 @@ class UserService:
 
             if "timezone" in update_data and update_data["timezone"] is not None:
                 # Validate timezone format (basic check - should be valid IANA timezone)
-                timezone = update_data["timezone"]
+                tz_value = update_data["timezone"]
                 # Try to use pytz for validation if available
                 try:
                     import pytz
 
-                    if timezone not in pytz.all_timezones:
-                        return None, f"Invalid timezone: {timezone}"
+                    if tz_value not in pytz.all_timezones:
+                        return None, f"Invalid timezone: {tz_value}"
                 except ImportError:
                     # If pytz not available, do basic validation
-                    if not isinstance(timezone, str) or len(timezone) < 3:
-                        return None, f"Invalid timezone format: {timezone}"
+                    if not isinstance(tz_value, str) or len(tz_value) < 3:
+                        return None, f"Invalid timezone format: {tz_value}"
 
-                user.timezone = timezone
+                user.timezone = tz_value
 
             if "risk_limit_pct" in update_data and update_data["risk_limit_pct"] is not None:
                 risk_limit = update_data["risk_limit_pct"]
@@ -110,7 +118,7 @@ class UserService:
 
                 user.risk_limit_pct = risk_limit
 
-            user.updated_at = datetime.utcnow()
+            user.updated_at = datetime.now(timezone.utc)
             db.commit()
             db.refresh(user)
 
@@ -144,7 +152,7 @@ class UserService:
             Returns (False, error_message) on failure
         """
         try:
-            user = db.query(User).filter(User.id == user_id).first()
+            user = db.query(User).filter(User.id == _to_uuid(user_id)).first()
 
             if not user:
                 return False, "User not found"
@@ -161,7 +169,7 @@ class UserService:
 
             # Update password
             user.password_hash = hash_password(new_password)
-            user.updated_at = datetime.utcnow()
+            user.updated_at = datetime.now(timezone.utc)
 
             db.commit()
             db.refresh(user)
@@ -196,7 +204,7 @@ class UserService:
             Returns (False, error_message) on failure
         """
         try:
-            user = db.query(User).filter(User.id == user_id).first()
+            user = db.query(User).filter(User.id == _to_uuid(user_id)).first()
 
             if not user:
                 return False, "User not found"
@@ -221,7 +229,7 @@ class UserService:
             user.email = new_email.lower()
             user.is_email_verified = False
             user.email_verification_token = verification_token
-            user.updated_at = datetime.utcnow()
+            user.updated_at = datetime.now(timezone.utc)
 
             try:
                 db.commit()

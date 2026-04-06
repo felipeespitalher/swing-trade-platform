@@ -199,7 +199,6 @@ class UserPasswordChange(BaseModel):
     )
     new_password: str = Field(
         ...,
-        min_length=8,
         description="New password (must meet strength requirements)",
     )
 

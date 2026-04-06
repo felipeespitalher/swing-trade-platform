@@ -9,7 +9,7 @@ Provides business logic for:
 
 import logging
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, and_
@@ -291,7 +291,7 @@ class AuditService:
             List of AuditLog entries
         """
         try:
-            start_time = datetime.utcnow() - timedelta(hours=hours)
+            start_time = datetime.now(timezone.utc) - timedelta(hours=hours)
 
             logs = (
                 db.query(AuditLog)

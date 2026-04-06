@@ -6,7 +6,7 @@ Tracks application health, metrics, and performance indicators.
 
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 from sqlalchemy import text
@@ -54,7 +54,7 @@ class MonitoringService:
         """
         checks = {
             "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "uptime_seconds": round(time.time() - cls._start_time, 2),
             "components": {
                 "database": "unknown",
@@ -94,7 +94,7 @@ class MonitoringService:
         uptime_minutes = uptime / 60
 
         metrics = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "uptime": {
                 "seconds": round(uptime, 2),
                 "minutes": round(uptime_minutes, 2),
@@ -163,12 +163,12 @@ class MonitoringService:
                     if not settings.debug
                     else settings.database_url
                 ),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         except Exception as exc:
             logger.error(f"Database connection check failed: {exc}", exc_info=True)
             return {
                 "status": "disconnected",
                 "error": str(exc),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }

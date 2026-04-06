@@ -5,9 +5,9 @@ Defines the AuditLog entity for immutable audit trail of user actions.
 """
 
 from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Index
-from sqlalchemy.dialects.postgresql import UUID, INET
+from sqlalchemy import Uuid as UUID
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from app.models.user import Base
@@ -30,10 +30,10 @@ class AuditLog(Base):
     resource_id = Column(UUID(as_uuid=True), nullable=True)
     old_values = Column(JSON, nullable=True)
     new_values = Column(JSON, nullable=True)
-    ip_address = Column(INET, nullable=True)
+    ip_address = Column(String(45), nullable=True)  # IPv4/IPv6 as string for SQLite compat
     user_agent = Column(String, nullable=True)
     created_at = Column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
     # Relationship to User

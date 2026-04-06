@@ -7,7 +7,7 @@ Provides functions for:
 - Token payload management
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Any
 import re
 import logging
@@ -123,7 +123,7 @@ def create_access_token(
     if expires_delta is None:
         expires_delta = settings.access_token_expire
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     expire = now + expires_delta
 
     payload = {
@@ -161,7 +161,7 @@ def create_refresh_token(
     if expires_delta is None:
         expires_delta = settings.refresh_token_expire
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     expire = now + expires_delta
 
     payload = {

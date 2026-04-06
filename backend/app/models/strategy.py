@@ -5,9 +5,9 @@ Defines the Strategy entity for trading strategies with JSON configuration.
 """
 
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, JSON, Integer, Index
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Uuid as UUID
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from app.models.user import Base
@@ -32,10 +32,10 @@ class Strategy(Base):
     is_active = Column(Boolean, default=False, nullable=False)
     version = Column(Integer, default=1, nullable=False)
     created_at = Column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
     updated_at = Column(
-        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
     )
 
     # Relationship to User

@@ -10,7 +10,7 @@ sqlalchemy-timescaledb==0.4.1
 
 # Security and authentication
 python-jose[cryptography]==3.3.0
-cryptography==41.0.7
+cryptography==46.0.6
 passlib[bcrypt]==1.7.4
 
 # Environment and config

@@ -1,0 +1,43 @@
+# FastAPI and server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.12.1
+sqlalchemy-timescaledb==0.4.1
+
+# Security and authentication
+python-jose[cryptography]==3.3.0
+cryptography==41.0.7
+passlib[bcrypt]==1.7.4
+
+# Environment and config
+python-dotenv==1.0.0
+
+# Data validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+email-validator==2.1.0
+
+# Trading and market data
+ccxt==4.5.46
+pandas==2.2.3
+
+# Task queue and scheduling
+celery==5.3.6
+celery-redbeat==2.2.0
+flower==2.0.1
+
+# WebSocket
+websockets==12.0
+
+# Redis
+redis==5.0.1
+
+# Monitoring and logging
+python-json-logger==2.0.7
+
+# Email delivery
+resend==2.7.0

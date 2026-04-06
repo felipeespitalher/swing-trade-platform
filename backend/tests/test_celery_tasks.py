@@ -6,6 +6,7 @@ All external dependencies (BinanceAdapter, OHLCVService, DB, asyncio.run) are mo
 """
 
 import uuid
+from decimal import Decimal
 import numpy as np
 import pytest
 from unittest.mock import MagicMock, patch
@@ -346,6 +347,78 @@ class TestEvaluateStrategy:
             timeframe="1h",
             limit=200,
         )
+
+    def test_evaluate_strategy_buy_signal_creates_trade(self):
+        """BUY signal from SignalGenerator → simulate_entry → TradeService.create_paper_trade called."""
+        from app.services.signal_generator import Signal
+        from app.services.paper_trading_engine import PaperPortfolio
+
+        strategy_id = uuid.uuid4()
+        strategy = make_strategy(
+            strategy_id=strategy_id,
+            config={"symbol": "BTC/USDT", "timeframe": "1h", "type": "rsi_only"},
+        )
+        # Ensure strategy.type returns a clean string so SignalGenerator accepts it
+        strategy.type = "rsi_only"
+
+        mock_db = MagicMock()
+        sufficient_closes = np.array([50000.0] * 50, dtype=np.float64)
+        # Candle list: [timestamp_ms, open, high, low, close, volume]
+        mock_candles = [[1_000_000, 49000.0, 51000.0, 48500.0, 50100.0, 1234.5]]
+
+        # Build a real PaperPortfolio with no open positions
+        portfolio = PaperPortfolio(strategy_id=strategy_id, initial_balance=Decimal("10000"))
+
+        mock_position = MagicMock()
+        mock_position.entry_price = Decimal("50200.0")
+        mock_position.quantity = Decimal("0.01")
+
+        with patch("app.services.ohlcv_service.OHLCVService.get_closes_array",
+                   return_value=sufficient_closes), \
+             patch("app.services.ohlcv_service.OHLCVService.get_candles",
+                   return_value=mock_candles), \
+             patch("app.services.signal_generator.SignalGenerator.evaluate",
+                   return_value=Signal.BUY), \
+             patch("app.services.paper_trading_session.PaperTradingSessionManager.get_session",
+                   return_value=portfolio), \
+             patch("app.services.paper_trading_session.PaperTradingSessionManager.save_session"), \
+             patch("app.services.paper_trading_engine.PaperTradingEngine.simulate_entry",
+                   return_value=mock_position) as mock_entry, \
+             patch("app.services.trade_service.TradeService.create_paper_trade") as mock_create:
+
+            result = _evaluate_strategy(mock_db, strategy)
+
+        assert result == "BUY"
+        mock_entry.assert_called_once()
+        mock_create.assert_called_once()
+        call_kwargs = mock_create.call_args
+        assert call_kwargs.kwargs["strategy_id"] == str(strategy_id)
+        assert call_kwargs.kwargs["trade_dict"]["symbol"] == "BTC/USDT"
+
+    def test_evaluate_strategy_hold_signal_no_trade(self):
+        """HOLD signal from SignalGenerator → TradeService.create_paper_trade NOT called."""
+        from app.services.signal_generator import Signal
+
+        strategy_id = uuid.uuid4()
+        strategy = make_strategy(
+            strategy_id=strategy_id,
+            config={"symbol": "BTC/USDT", "timeframe": "1h", "type": "rsi_only"},
+        )
+        strategy.type = "rsi_only"
+
+        mock_db = MagicMock()
+        sufficient_closes = np.array([50000.0] * 50, dtype=np.float64)
+
+        with patch("app.services.ohlcv_service.OHLCVService.get_closes_array",
+                   return_value=sufficient_closes), \
+             patch("app.services.signal_generator.SignalGenerator.evaluate",
+                   return_value=Signal.HOLD), \
+             patch("app.services.trade_service.TradeService.create_paper_trade") as mock_create:
+
+            result = _evaluate_strategy(mock_db, strategy)
+
+        assert result == "HOLD"
+        mock_create.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

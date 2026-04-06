@@ -19,6 +19,7 @@ from app.api.dashboard import router as dashboard_router
 from app.api.market_data import router as market_data_router
 from app.api.paper_trading import router as paper_trading_router
 from app.api.ws import router as ws_router
+from app.core.config import settings
 from app.core.logging import setup_logging
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.audit import AuditMiddleware
@@ -67,20 +68,12 @@ app.add_middleware(CSRFMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
 # Configure CORS middleware for development
-_cors_origins = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://frontend-red-one-62.vercel.app",
-]
-if settings.frontend_url and settings.frontend_url not in _cors_origins:
-    _cors_origins.append(settings.frontend_url)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["*", "X-Request-ID"],
+    allow_headers=["*"],
 )
 
 

@@ -1,4 +1,4 @@
-import api from './api';
+import { api } from './api';
 
 export interface BacktestRequest {
   strategy_id: string;

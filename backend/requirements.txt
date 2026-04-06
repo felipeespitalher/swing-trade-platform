@@ -24,8 +24,6 @@ email-validator==2.1.0
 # Trading and market data
 ccxt==4.5.46
 pandas==2.2.3
-# Requires libta-lib-dev system package (see Dockerfile)
-TA-Lib==0.6.8
 pandas-ta==0.3.14b0
 
 # Task queue and scheduling

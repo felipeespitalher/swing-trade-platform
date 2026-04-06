@@ -14,6 +14,8 @@ from fastapi.responses import JSONResponse
 
 from app.api import auth, users, exchange_keys, health, audit
 from app.api import strategies
+from app.api.backtest import router as backtest_router
+from app.api.dashboard import router as dashboard_router
 from app.api.market_data import router as market_data_router
 from app.api.paper_trading import router as paper_trading_router
 from app.api.ws import router as ws_router
@@ -121,6 +123,8 @@ app.include_router(strategies.router)
 app.include_router(market_data_router)
 app.include_router(paper_trading_router)
 app.include_router(ws_router)
+app.include_router(backtest_router)
+app.include_router(dashboard_router)
 
 
 if __name__ == "__main__":

@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     # Redis Configuration
     redis_url: str = "redis://localhost:6379/0"
 
+    # Frontend
+    frontend_url: str = "http://localhost:5173"
+
     # Development
     environment: str = "development"
 

@@ -23,6 +23,7 @@ from app.core.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
+    create_password_reset_token,
     PasswordValidator,
     verify_token,
 )
@@ -291,3 +292,114 @@ class AuthService:
         except Exception as e:
             logger.error(f"Error getting current user: {e}")
             return None, "Failed to get user information"
+
+    @staticmethod
+    def request_password_reset(
+        db: Session,
+        email: str,
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Generate a password reset token and send reset email.
+
+        Always returns success (even for unknown emails) to prevent
+        user enumeration attacks.
+
+        Args:
+            db: Database session
+            email: User's email address
+
+        Returns:
+            Tuple of (reset_token_or_None, error_message_or_None)
+        """
+        try:
+            user = db.query(User).filter(User.email == email.lower()).first()
+
+            if not user:
+                # Return success anyway to avoid user enumeration
+                logger.info(f"Password reset requested for unknown email: {email}")
+                return None, None
+
+            reset_token = create_password_reset_token(
+                user_id=str(user.id),
+                email=user.email,
+                pwd_hash=user.password_hash,
+            )
+
+            EmailService.send_password_reset_email(
+                email=user.email,
+                first_name=user.first_name or "Usuário",
+                reset_token=reset_token,
+            )
+
+            logger.info(f"Password reset requested for: {user.email}")
+            return reset_token, None
+
+        except Exception as e:
+            logger.error(f"Error requesting password reset: {e}")
+            return None, "Failed to process password reset request"
+
+    @staticmethod
+    def reset_password(
+        db: Session,
+        token: str,
+        new_password: str,
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Reset user password using a valid reset token.
+
+        Args:
+            db: Database session
+            token: JWT password reset token
+            new_password: New plain-text password
+
+        Returns:
+            Tuple of (success, error_message)
+        """
+        from app.core.security import settings
+        from jose import JWTError, jwt
+
+        try:
+            # Decode without type check first to get payload
+            try:
+                payload = jwt.decode(
+                    token, settings.secret_key, algorithms=[settings.algorithm]
+                )
+            except JWTError:
+                return False, "Token inválido ou expirado"
+
+            if payload.get("type") != "password_reset":
+                return False, "Token inválido"
+
+            user_id_str = payload.get("sub")
+            pwd_fp = payload.get("pwd_fp", "")
+
+            try:
+                user_id = uuid.UUID(user_id_str)
+            except (ValueError, TypeError):
+                return False, "Token inválido"
+
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                return False, "Usuário não encontrado"
+
+            # Check fingerprint — invalidates token if password already changed
+            if user.password_hash[:16] != pwd_fp:
+                return False, "Token já utilizado ou expirado"
+
+            # Validate new password strength
+            is_valid, error_msg = PasswordValidator.validate(new_password)
+            if not is_valid:
+                return False, error_msg
+
+            from datetime import timezone as _tz
+            user.password_hash = hash_password(new_password)
+            user.updated_at = __import__("datetime").datetime.now(_tz.utc)
+            db.commit()
+
+            logger.info(f"Password reset successfully for: {user.email}")
+            return True, None
+
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error resetting password: {e}")
+            return False, "Falha ao redefinir senha"

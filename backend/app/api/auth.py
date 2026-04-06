@@ -21,6 +21,9 @@ from app.schemas.auth import (
     TokenRefresh,
     VerificationResponse,
     RegistrationResponse,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    OperationResponse,
 )
 from app.services.auth_service import AuthService
 from app.db.session import get_db
@@ -242,3 +245,49 @@ async def get_csrf_token(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="CSRF service temporarily unavailable",
         )
+
+
+@router.post(
+    "/forgot-password",
+    response_model=OperationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Request Password Reset",
+    description="Send a password reset email. Always returns success to prevent user enumeration.",
+)
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """Request a password reset link via email."""
+    AuthService.request_password_reset(db, data.email)
+    # Always return success to prevent email enumeration
+    return OperationResponse(
+        success=True,
+        message="Se o e-mail estiver cadastrado, você receberá as instruções em breve.",
+    )
+
+
+@router.post(
+    "/reset-password",
+    response_model=OperationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Reset Password",
+    description="Reset user password using a valid reset token.",
+)
+async def reset_password(
+    data: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """Reset password with valid JWT reset token."""
+    success, error = AuthService.reset_password(db, data.token, data.new_password)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error,
+        )
+
+    return OperationResponse(
+        success=True,
+        message="Senha redefinida com sucesso. Faça login com sua nova senha.",
+    )

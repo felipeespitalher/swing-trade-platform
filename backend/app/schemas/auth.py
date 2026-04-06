@@ -236,6 +236,19 @@ class UserEmailChange(BaseModel):
         }
 
 
+class ForgotPasswordRequest(BaseModel):
+    """Schema for forgot password request."""
+
+    email: EmailStr = Field(..., description="User email address")
+
+
+class ResetPasswordRequest(BaseModel):
+    """Schema for password reset."""
+
+    token: str = Field(..., description="Password reset JWT token")
+    new_password: str = Field(..., description="New password")
+
+
 class OperationResponse(BaseModel):
     """Schema for operation response (success/failure)."""
 

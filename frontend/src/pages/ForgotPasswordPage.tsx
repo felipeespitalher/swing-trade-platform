@@ -8,6 +8,7 @@ import { Loader2, BarChart2, Mail, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/config/routes';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { authService } from '@/services/authService';
 
 const forgotSchema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -28,11 +29,10 @@ function ForgotPasswordForm() {
     resolver: zodResolver(forgotSchema),
   });
 
-  const onSubmit = async (_data: ForgotFormData) => {
+  const onSubmit = async (data: ForgotFormData) => {
     setApiError(null);
     try {
-      // Endpoint not yet defined in the backend spec — simulating success for now
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await authService.forgotPassword(data.email);
       setSent(true);
     } catch {
       setApiError('Não foi possível enviar o e-mail. Tente novamente.');

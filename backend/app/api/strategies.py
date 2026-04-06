@@ -13,16 +13,18 @@ Endpoints:
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Dict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, field_validator
+from sqlalchemy import func, case
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.db.session import get_db
 from app.models.strategy import Strategy
+from app.models.trade import Trade
 from app.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
@@ -96,13 +98,21 @@ class StrategyResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: Optional[datetime]
+    win_rate: Optional[float] = None
+    total_trades: int = 0
+    last_run: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_strategy(cls, strategy: Strategy) -> "StrategyResponse":
+    def from_strategy(
+        cls,
+        strategy: Strategy,
+        stats: Optional[Dict] = None,
+    ) -> "StrategyResponse":
         """Build response from Strategy ORM object, extracting symbol/timeframe from config."""
         config = strategy.config or {}
+        s = stats or {}
         return cls(
             id=str(strategy.id),
             name=strategy.name,
@@ -113,6 +123,9 @@ class StrategyResponse(BaseModel):
             is_active=strategy.is_active,
             created_at=strategy.created_at,
             updated_at=strategy.updated_at,
+            win_rate=s.get("win_rate"),
+            total_trades=s.get("total_trades", 0),
+            last_run=s.get("last_run"),
         )
 
 
@@ -133,6 +146,43 @@ def _get_strategy_or_404(strategy_id: str, user_id: UUID, db: Session) -> Strate
     return strategy
 
 
+def _bulk_strategy_stats(db: Session, strategy_ids: List[UUID]) -> Dict[UUID, Dict]:
+    """
+    Bulk-fetch win_rate, total_trades, last_run for a list of strategy IDs.
+    Only counts closed paper trades (exit_date IS NOT NULL).
+    """
+    if not strategy_ids:
+        return {}
+
+    rows = (
+        db.query(
+            Trade.strategy_id,
+            func.count(Trade.id).label("total_trades"),
+            func.sum(
+                case((Trade.pnl > 0, 1), else_=0)
+            ).label("wins"),
+            func.max(Trade.exit_date).label("last_run"),
+        )
+        .filter(
+            Trade.strategy_id.in_(strategy_ids),
+            Trade.exit_date.isnot(None),
+        )
+        .group_by(Trade.strategy_id)
+        .all()
+    )
+
+    stats: Dict[UUID, Dict] = {}
+    for row in rows:
+        total = row.total_trades or 0
+        wins = int(row.wins or 0)
+        stats[row.strategy_id] = {
+            "total_trades": total,
+            "win_rate": round(wins / total, 4) if total > 0 else None,
+            "last_run": row.last_run,
+        }
+    return stats
+
+
 @router.get("", response_model=List[StrategyResponse])
 def list_strategies(
     db: Session = Depends(get_db),
@@ -145,7 +195,8 @@ def list_strategies(
         .order_by(Strategy.created_at.desc())
         .all()
     )
-    return [StrategyResponse.from_strategy(s) for s in strategies]
+    stats = _bulk_strategy_stats(db, [s.id for s in strategies])
+    return [StrategyResponse.from_strategy(s, stats.get(s.id)) for s in strategies]
 
 
 @router.post("", response_model=StrategyResponse, status_code=201)
@@ -182,7 +233,8 @@ def get_strategy(
 ):
     """Get a specific strategy by ID."""
     strategy = _get_strategy_or_404(strategy_id, user_id, db)
-    return StrategyResponse.from_strategy(strategy)
+    stats = _bulk_strategy_stats(db, [strategy.id])
+    return StrategyResponse.from_strategy(strategy, stats.get(strategy.id))
 
 
 @router.put("/{strategy_id}", response_model=StrategyResponse)

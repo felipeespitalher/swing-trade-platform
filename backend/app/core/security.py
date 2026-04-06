@@ -180,6 +180,37 @@ def create_refresh_token(
     return encoded_jwt
 
 
+def create_password_reset_token(user_id: str, email: str, pwd_hash: str) -> str:
+    """
+    Create a short-lived JWT for password reset.
+
+    The pwd_fingerprint embeds the first 16 chars of the current hash so the
+    token auto-invalidates once the password is changed.
+
+    Args:
+        user_id: User ID
+        email: User email
+        pwd_hash: Current bcrypt hash (fingerprint stored in token)
+
+    Returns:
+        Encoded JWT (valid for 15 minutes)
+    """
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(minutes=15)
+
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "exp": int(expire.timestamp()),
+        "iat": int(now.timestamp()),
+        "type": "password_reset",
+        "iss": "swing-trade-platform",
+        "pwd_fp": pwd_hash[:16],
+    }
+
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
 def verify_token(token: str, token_type: str = "access") -> Optional[TokenPayload]:
     """
     Verify and decode a JWT token.

@@ -79,6 +79,78 @@ class EmailService:
             return False
 
     @staticmethod
+    def send_password_reset_email(
+        email: str,
+        first_name: str,
+        reset_token: str,
+    ) -> bool:
+        """
+        Send password reset email.
+
+        Args:
+            email: Recipient email address
+            first_name: User's first name
+            reset_token: JWT reset token
+
+        Returns:
+            True if email sent successfully
+        """
+        try:
+            frontend_url = getattr(settings, "frontend_url", "http://localhost:5173")
+            reset_url = f"{frontend_url}/auth/reset-password?token={reset_token}"
+
+            subject = "Redefinição de Senha — Swing Trade Platform"
+            html_content = f"""
+<html><body style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+<h2 style="color:#3b82f6">Redefinição de Senha</h2>
+<p>Olá, {first_name}!</p>
+<p>Recebemos uma solicitação para redefinir a senha da sua conta.
+Clique no botão abaixo para criar uma nova senha:</p>
+<p style="text-align:center;margin:32px 0">
+  <a href="{reset_url}" style="background:#3b82f6;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600">
+    Redefinir Senha
+  </a>
+</p>
+<p style="color:#6b7280;font-size:13px">
+  O link expira em <strong>15 minutos</strong>.<br>
+  Se você não solicitou a redefinição, ignore este e-mail.
+</p>
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+<p style="color:#9ca3af;font-size:12px">Swing Trade Automation Platform</p>
+</body></html>
+"""
+            text_content = (
+                f"Redefinição de Senha\n\n"
+                f"Olá, {first_name}!\n\n"
+                f"Clique no link abaixo para redefinir sua senha (válido por 15 min):\n"
+                f"{reset_url}\n\n"
+                f"Se você não solicitou a redefinição, ignore este e-mail."
+            )
+
+            if settings.environment == "development" or not settings.smtp_host:
+                logger.info(
+                    f"[EMAIL - DEVELOPMENT MODE]\n"
+                    f"To: {email}\n"
+                    f"Subject: {subject}\n"
+                    f"---\n"
+                    f"{text_content}\n"
+                    f"---\n"
+                    f"Reset URL: {reset_url}\n"
+                )
+                return True
+
+            return EmailService._send_smtp(
+                to_email=email,
+                subject=subject,
+                html_content=html_content,
+                text_content=text_content,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to send reset email to {email}: {e}")
+            return False
+
+    @staticmethod
     def _send_smtp(
         to_email: str,
         subject: str,

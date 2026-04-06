@@ -28,6 +28,9 @@ interface BackendStrategy {
   is_active: boolean;
   created_at: string;
   updated_at: string | null;
+  win_rate: number | null;
+  total_trades: number;
+  last_run: string | null;
 }
 
 function toFrontend(s: BackendStrategy): Strategy {
@@ -35,9 +38,9 @@ function toFrontend(s: BackendStrategy): Strategy {
     id: s.id,
     name: s.name,
     status: s.is_active ? 'active' : 'inactive',
-    win_rate: null,
-    total_trades: 0,
-    last_run: s.updated_at,
+    win_rate: s.win_rate ?? null,
+    total_trades: s.total_trades ?? 0,
+    last_run: s.last_run ?? s.updated_at,
     created_at: s.created_at,
     description: s.config.description as string | undefined,
     symbols: s.symbol ? [s.symbol] : ['BTC/USDT'],

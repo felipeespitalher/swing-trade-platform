@@ -205,7 +205,7 @@ def create_password_reset_token(user_id: str, email: str, pwd_hash: str) -> str:
         "iat": int(now.timestamp()),
         "type": "password_reset",
         "iss": "swing-trade-platform",
-        "pwd_fp": pwd_hash[:16],
+        "pwd_fp": pwd_hash[-16:],
     }
 
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)

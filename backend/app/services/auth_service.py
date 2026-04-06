@@ -383,7 +383,7 @@ class AuthService:
                 return False, "Usuário não encontrado"
 
             # Check fingerprint — invalidates token if password already changed
-            if user.password_hash[:16] != pwd_fp:
+            if user.password_hash[-16:] != pwd_fp:
                 return False, "Token já utilizado ou expirado"
 
             # Validate new password strength

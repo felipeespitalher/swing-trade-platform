@@ -658,3 +658,171 @@ class TestErrorHandling:
         )
 
         assert response.status_code == 401
+
+
+class TestPasswordReset:
+    """Tests for forgot/reset password flow."""
+
+    def test_forgot_password_known_email_returns_200(
+        self, client: TestClient, verified_user: User
+    ):
+        """Forgot password always returns 200 even for known email (anti-enumeration)."""
+        response = client.post(
+            "/api/auth/forgot-password",
+            json={"email": verified_user.email},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "message" in data
+
+    def test_forgot_password_unknown_email_returns_200(self, client: TestClient):
+        """Forgot password returns 200 for unknown email (no user enumeration)."""
+        response = client.post(
+            "/api/auth/forgot-password",
+            json={"email": "nobody@example.com"},
+        )
+        assert response.status_code == 200
+
+    def test_forgot_password_invalid_email_returns_422(self, client: TestClient):
+        """Forgot password returns 422 for invalid email format."""
+        response = client.post(
+            "/api/auth/forgot-password",
+            json={"email": "not-an-email"},
+        )
+        assert response.status_code == 422
+
+    def test_reset_password_success(
+        self, client: TestClient, db: Session, verified_user: User
+    ):
+        """Valid token allows resetting to a new strong password."""
+        from app.core.security import create_password_reset_token
+
+        token = create_password_reset_token(
+            user_id=str(verified_user.id),
+            email=verified_user.email,
+            pwd_hash=verified_user.password_hash,
+        )
+
+        response = client.post(
+            "/api/auth/reset-password",
+            json={"token": token, "new_password": "NewSecure456!"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "message" in data
+
+    def test_reset_password_allows_login_with_new_password(
+        self, client: TestClient, db: Session, verified_user: User
+    ):
+        """After reset, user can log in with the new password."""
+        from app.core.security import create_password_reset_token
+
+        token = create_password_reset_token(
+            user_id=str(verified_user.id),
+            email=verified_user.email,
+            pwd_hash=verified_user.password_hash,
+        )
+        client.post(
+            "/api/auth/reset-password",
+            json={"token": token, "new_password": "NewSecure456!"},
+        )
+
+        login_response = client.post(
+            "/api/auth/login",
+            json={"email": verified_user.email, "password": "NewSecure456!"},
+        )
+        assert login_response.status_code == 200
+        assert "access_token" in login_response.json()
+
+    def test_reset_password_old_password_rejected_after_reset(
+        self, client: TestClient, db: Session, verified_user: User
+    ):
+        """After reset, the old password no longer works."""
+        from app.core.security import create_password_reset_token
+
+        token = create_password_reset_token(
+            user_id=str(verified_user.id),
+            email=verified_user.email,
+            pwd_hash=verified_user.password_hash,
+        )
+        client.post(
+            "/api/auth/reset-password",
+            json={"token": token, "new_password": "NewSecure456!"},
+        )
+
+        login_response = client.post(
+            "/api/auth/login",
+            json={"email": verified_user.email, "password": "SecurePass123!"},
+        )
+        assert login_response.status_code == 401
+
+    def test_reset_password_token_cannot_be_reused(
+        self, db: Session, verified_user: User
+    ):
+        """A reset token is single-use: fingerprint changes after first use."""
+        from app.core.security import create_password_reset_token
+        from app.services.auth_service import AuthService
+
+        original_hash = verified_user.password_hash
+        token = create_password_reset_token(
+            user_id=str(verified_user.id),
+            email=verified_user.email,
+            pwd_hash=original_hash,
+        )
+
+        # First use — should succeed
+        success, error = AuthService.reset_password(db, token, "NewSecure456!")
+        assert success is True
+        assert error is None
+
+        # Reload user so the fingerprint check sees the updated hash
+        db.expire(verified_user)
+        db.refresh(verified_user)
+
+        # Second use with same token — fingerprint no longer matches
+        success2, error2 = AuthService.reset_password(db, token, "AnotherPass789!")
+        assert success2 is False
+        assert error2 is not None
+
+    def test_reset_password_invalid_token_returns_400(self, client: TestClient):
+        """A completely invalid JWT returns 400."""
+        response = client.post(
+            "/api/auth/reset-password",
+            json={"token": "this.is.not.a.jwt", "new_password": "NewSecure456!"},
+        )
+        assert response.status_code == 400
+
+    def test_reset_password_weak_password_returns_400(
+        self, client: TestClient, db: Session, verified_user: User
+    ):
+        """Weak new password is rejected with 400."""
+        from app.core.security import create_password_reset_token
+
+        token = create_password_reset_token(
+            user_id=str(verified_user.id),
+            email=verified_user.email,
+            pwd_hash=verified_user.password_hash,
+        )
+
+        response = client.post(
+            "/api/auth/reset-password",
+            json={"token": token, "new_password": "weak"},
+        )
+        assert response.status_code == 400
+
+    def test_reset_password_wrong_token_type_returns_400(
+        self, client: TestClient, verified_user: User
+    ):
+        """An access token (not a reset token) must be rejected."""
+        from app.core.security import create_access_token
+
+        access_token = create_access_token(
+            user_id=str(verified_user.id),
+            email=verified_user.email,
+        )
+
+        response = client.post(
+            "/api/auth/reset-password",
+            json={"token": access_token, "new_password": "NewSecure456!"},
+        )
+        assert response.status_code == 400

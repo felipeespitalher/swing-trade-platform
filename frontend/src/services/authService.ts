@@ -41,11 +41,9 @@ export const authService = {
   },
 
   async login(data: LoginRequest): Promise<AuthResponse> {
-    const formData = new URLSearchParams();
-    formData.append('username', data.email);
-    formData.append('password', data.password);
-    const response = await api.post<AuthResponse>('/api/auth/login', formData, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    const response = await api.post<AuthResponse>('/api/auth/login', {
+      email: data.email,
+      password: data.password,
     });
     return response.data;
   },

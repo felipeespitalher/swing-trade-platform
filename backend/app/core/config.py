@@ -32,7 +32,12 @@ class Settings(BaseSettings):
     # Encryption Configuration
     encryption_master_key: str = "your-encryption-master-key-change-in-production"
 
-    # Email Configuration (for development: mock via console)
+    # Email — Resend (https://resend.com)
+    resend_api_key: str = ""
+    resend_from_email: str = "onboarding@resend.dev"
+    resend_from_name: str = "Swing Trade Platform"
+
+    # Email — SMTP fallback (optional)
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""

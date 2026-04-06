@@ -55,3 +55,6 @@ aioredis==2.0.1
 
 # Monitoring and logging
 python-json-logger==2.0.7
+
+# Email delivery
+resend==2.7.0

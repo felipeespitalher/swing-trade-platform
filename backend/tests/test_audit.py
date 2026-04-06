@@ -15,7 +15,7 @@ Tests cover:
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 import json
 
@@ -266,7 +266,7 @@ class TestAuditLogRetrieval:
         )
 
         # Get current date range
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         start_date = now - timedelta(days=1)
         end_date = now + timedelta(days=1)
 
@@ -536,7 +536,7 @@ class TestAuditAPIEndpoints:
         access_token = login_response.json()["access_token"]
 
         # Get audit logs by date range
-        today = datetime.utcnow().date()
+        today = datetime.now(timezone.utc).date()
         response = client.get(
             f"/api/audit/me/date-range?start_date={today}&end_date={today}",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -703,7 +703,6 @@ class TestAuditDataIntegrity:
 
     def test_audit_log_timestamps_accurate(self, db: Session, verified_user: User):
         """Test that audit log timestamps are accurate."""
-        from datetime import timezone
         before = datetime.now(timezone.utc)
 
         audit_log = AuditService.log_action(
@@ -714,8 +713,13 @@ class TestAuditDataIntegrity:
 
         after = datetime.now(timezone.utc)
 
-        # Compare without timezone awareness or convert both to aware
-        assert before <= audit_log.created_at <= after
+        # SQLite returns naive datetimes; normalize both sides to naive UTC for comparison
+        created = audit_log.created_at
+        if created.tzinfo is not None:
+            created = created.replace(tzinfo=None)
+        before_naive = before.replace(tzinfo=None)
+        after_naive = after.replace(tzinfo=None)
+        assert before_naive <= created <= after_naive
 
     def test_audit_log_preserves_all_fields(self, db: Session, verified_user: User):
         """Test that all audit log fields are preserved correctly."""

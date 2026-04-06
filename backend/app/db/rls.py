@@ -45,6 +45,16 @@ def set_user_context(session: Session, user_id: UUID) -> None:
 
     user_id_str = str(user_id)
 
+    # SET LOCAL is PostgreSQL-specific; SQLite doesn't support RLS
+    try:
+        dialect = session.get_bind().dialect.name
+    except Exception:
+        dialect = "unknown"
+
+    if dialect == "sqlite":
+        logger.debug(f"SQLite detected — skipping SET LOCAL (no RLS in SQLite)")
+        return
+
     try:
         # Use SET LOCAL to scope the variable to this transaction
         # This is PostgreSQL-specific and will be reset after COMMIT/ROLLBACK

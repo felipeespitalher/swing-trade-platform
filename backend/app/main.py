@@ -68,12 +68,20 @@ app.add_middleware(CSRFMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
 # Configure CORS middleware for development
+_cors_origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://frontend-red-one-62.vercel.app",
+]
+if settings.frontend_url and settings.frontend_url not in _cors_origins:
+    _cors_origins.append(settings.frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=_cors_origins,
+    allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-Request-ID"],
 )
 
 

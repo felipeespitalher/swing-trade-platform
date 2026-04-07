@@ -5,7 +5,6 @@ import { CheckCircle2, XCircle, Loader2, BarChart2 } from 'lucide-react';
 import { ROUTES } from '@/config/routes';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { authService } from '@/services/authService';
-import { useAuthStore } from '@/stores/authStore';
 
 type Status = 'loading' | 'success' | 'error' | 'missing-token';
 
@@ -13,7 +12,6 @@ export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token') ?? '';
-  const { setAuth, setToken } = useAuthStore();
 
   const [status, setStatus] = useState<Status>(token ? 'loading' : 'missing-token');
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -23,18 +21,9 @@ export default function VerifyEmailPage() {
 
     authService
       .verifyEmail(token)
-      .then(async ({ access_token, refresh_token }) => {
-        // Store tokens and fetch user profile for auto-login
-        setToken(access_token);
-        try {
-          const user = await authService.getMe();
-          setAuth(user, access_token, refresh_token);
-          navigate(ROUTES.DASHBOARD, { replace: true });
-        } catch {
-          // Tokens OK but profile fetch failed — just go to login
-          setStatus('success');
-          setTimeout(() => navigate(ROUTES.LOGIN, { replace: true }), 2000);
-        }
+      .then(() => {
+        setStatus('success');
+        setTimeout(() => navigate(ROUTES.LOGIN, { replace: true }), 3000);
       })
       .catch((err: unknown) => {
         const detail =
@@ -43,7 +32,7 @@ export default function VerifyEmailPage() {
         setErrorMsg(detail);
         setStatus('error');
       });
-  }, [token, navigate, setAuth, setToken]);
+  }, [token, navigate]);
 
   if (status === 'loading') {
     return (

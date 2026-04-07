@@ -4,48 +4,48 @@
 
 @layer base {
   :root {
-    --background: 248 250 252;        /* slate-50 */
-    --foreground: 15 23 42;           /* slate-950 */
-    --card: 255 255 255;
-    --card-foreground: 15 23 42;
-    --popover: 255 255 255;
-    --popover-foreground: 15 23 42;
-    --primary: 59 130 246;            /* blue-500 */
-    --primary-foreground: 255 255 255;
-    --secondary: 241 245 249;         /* slate-100 */
-    --secondary-foreground: 15 23 42;
-    --muted: 241 245 249;
-    --muted-foreground: 100 116 139;
-    --accent: 241 245 249;
-    --accent-foreground: 15 23 42;
-    --destructive: 239 68 68;         /* red-500 */
-    --destructive-foreground: 255 255 255;
-    --border: 226 232 240;            /* slate-200 */
-    --input: 226 232 240;
-    --ring: 59 130 246;
+    --background: 214 40% 98%;        /* slate-50 */
+    --foreground: 222 47% 11%;        /* slate-950 */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 217 91% 60%;           /* blue-500 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;         /* slate-100 */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;  /* slate-500 */
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;         /* red-500 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;            /* slate-200 */
+    --input: 214 32% 91%;
+    --ring: 217 91% 60%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 15 23 42;           /* slate-950 */
-    --foreground: 241 245 249;        /* slate-100 */
-    --card: 30 41 59;                 /* slate-900 */
-    --card-foreground: 241 245 249;
-    --popover: 30 41 59;
-    --popover-foreground: 241 245 249;
-    --primary: 59 130 246;
-    --primary-foreground: 255 255 255;
-    --secondary: 51 65 85;            /* slate-700 */
-    --secondary-foreground: 241 245 249;
-    --muted: 51 65 85;
-    --muted-foreground: 148 163 184;  /* slate-400 */
-    --accent: 51 65 85;
-    --accent-foreground: 241 245 249;
-    --destructive: 239 68 68;
-    --destructive-foreground: 255 255 255;
-    --border: 51 65 85;               /* slate-700 */
-    --input: 51 65 85;
-    --ring: 59 130 246;
+    --background: 222 47% 11%;        /* slate-950 */
+    --foreground: 210 40% 96%;        /* slate-100 */
+    --card: 217 33% 17%;              /* slate-800 */
+    --card-foreground: 210 40% 96%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 217 91% 60%;           /* blue-500 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 25% 27%;         /* slate-700 */
+    --secondary-foreground: 210 40% 96%;
+    --muted: 215 25% 27%;
+    --muted-foreground: 215 20% 65%;  /* slate-400 */
+    --accent: 215 25% 27%;
+    --accent-foreground: 210 40% 96%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 25% 27%;            /* slate-700 */
+    --input: 215 25% 27%;
+    --ring: 217 91% 60%;
   }
 }
 

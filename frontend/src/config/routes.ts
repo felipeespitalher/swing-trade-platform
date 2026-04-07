@@ -8,6 +8,8 @@ export const ROUTES = {
   VERIFY_EMAIL: '/auth/verify',
   STRATEGIES: '/strategies',
   BACKTESTER: '/backtester',
+  PORTFOLIOS: '/portfolios',
   SETTINGS: '/settings',
+  HELP: '/help',
   NOT_FOUND: '*',
 } as const;

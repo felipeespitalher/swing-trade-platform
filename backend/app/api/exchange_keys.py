@@ -74,16 +74,21 @@ async def add_exchange_key(
             api_key=exchange_key_data.api_key,
             api_secret=exchange_key_data.api_secret,
             is_testnet=exchange_key_data.is_testnet,
+            label=exchange_key_data.label,
         )
 
         # Decrypt for response (user gets confirmation)
         decrypted = await exchange_key_service.decrypt_exchange_key(created_key, user_id)
+        raw_api_key = decrypted["api_key"]
+        masked = "****" + raw_api_key[-4:] if len(raw_api_key) >= 4 else "****"
 
         return ExchangeKeyDetailResponse(
             id=created_key.id,
             exchange=created_key.exchange,
-            api_key=decrypted["api_key"],
+            label=created_key.label,
+            api_key=raw_api_key,
             api_secret=decrypted["api_secret"],
+            api_key_masked=masked,
             is_testnet=created_key.is_testnet,
             is_active=created_key.is_active,
             created_at=created_key.created_at,
@@ -137,6 +142,8 @@ async def list_exchange_keys(
                 ExchangeKeyResponse(
                     id=key.id,
                     exchange=key.exchange,
+                    label=key.label,
+                    api_key_masked=None,  # Encrypted value not decoded in list view
                     is_testnet=key.is_testnet,
                     is_active=key.is_active,
                     created_at=key.created_at,
@@ -197,12 +204,16 @@ async def get_exchange_key(
 
         # Decrypt credentials for response
         decrypted = await exchange_key_service.decrypt_exchange_key(exchange_key, user_id)
+        raw_api_key = decrypted["api_key"]
+        masked = "****" + raw_api_key[-4:] if len(raw_api_key) >= 4 else "****"
 
         return ExchangeKeyDetailResponse(
             id=exchange_key.id,
             exchange=exchange_key.exchange,
-            api_key=decrypted["api_key"],
+            label=exchange_key.label,
+            api_key=raw_api_key,
             api_secret=decrypted["api_secret"],
+            api_key_masked=masked,
             is_testnet=exchange_key.is_testnet,
             is_active=exchange_key.is_active,
             created_at=exchange_key.created_at,
@@ -293,6 +304,8 @@ async def deactivate_exchange_key(
         return ExchangeKeyResponse(
             id=exchange_key.id,
             exchange=exchange_key.exchange,
+            label=exchange_key.label,
+            api_key_masked=None,
             is_testnet=exchange_key.is_testnet,
             is_active=exchange_key.is_active,
             created_at=exchange_key.created_at,
@@ -340,6 +353,8 @@ async def activate_exchange_key(
         return ExchangeKeyResponse(
             id=exchange_key.id,
             exchange=exchange_key.exchange,
+            label=exchange_key.label,
+            api_key_masked=None,
             is_testnet=exchange_key.is_testnet,
             is_active=exchange_key.is_active,
             created_at=exchange_key.created_at,

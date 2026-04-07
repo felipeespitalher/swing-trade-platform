@@ -16,6 +16,9 @@ class ExchangeKeyCreate(BaseModel):
     exchange: str = Field(
         ..., min_length=1, max_length=50, description="Exchange name (e.g., 'binance')"
     )
+    label: Optional[str] = Field(
+        default=None, max_length=100, description="User-defined label for this connection"
+    )
     api_key: str = Field(
         ..., min_length=1, description="Exchange API key (will be encrypted)"
     )
@@ -32,6 +35,7 @@ class ExchangeKeyCreate(BaseModel):
         json_schema_extra = {
             "example": {
                 "exchange": "binance",
+                "label": "My Binance Account",
                 "api_key": "your_api_key_here",
                 "api_secret": "your_api_secret_here",
                 "is_testnet": True,
@@ -50,6 +54,8 @@ class ExchangeKeyResponse(BaseModel):
 
     id: UUID
     exchange: str
+    label: Optional[str] = None
+    api_key_masked: Optional[str] = None
     is_testnet: bool
     is_active: bool
     created_at: datetime
@@ -63,6 +69,8 @@ class ExchangeKeyResponse(BaseModel):
             "example": {
                 "id": "123e4567-e89b-12d3-a456-426614174000",
                 "exchange": "binance",
+                "label": "My Binance Account",
+                "api_key_masked": "****abcd",
                 "is_testnet": True,
                 "is_active": True,
                 "created_at": "2024-04-02T10:00:00+00:00",
@@ -85,8 +93,10 @@ class ExchangeKeyDetailResponse(ExchangeKeyResponse):
             "example": {
                 "id": "123e4567-e89b-12d3-a456-426614174000",
                 "exchange": "binance",
+                "label": "My Binance Account",
                 "api_key": "your_api_key_here",
                 "api_secret": "your_api_secret_here",
+                "api_key_masked": "****abcd",
                 "is_testnet": True,
                 "is_active": True,
                 "created_at": "2024-04-02T10:00:00+00:00",
@@ -110,6 +120,8 @@ class ExchangeKeyListResponse(BaseModel):
                     {
                         "id": "123e4567-e89b-12d3-a456-426614174000",
                         "exchange": "binance",
+                        "label": "My Binance Account",
+                        "api_key_masked": "****abcd",
                         "is_testnet": True,
                         "is_active": True,
                         "created_at": "2024-04-02T10:00:00+00:00",

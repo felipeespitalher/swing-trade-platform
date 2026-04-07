@@ -18,7 +18,9 @@ const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const StrategyPage = lazy(() => import('./pages/StrategyPage'));
 const BacktesterPage = lazy(() => import('./pages/BacktesterPage'));
+const PortfoliosPage = lazy(() => import('./pages/PortfoliosPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const HelpPage = lazy(() => import('./pages/HelpPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
 
@@ -52,7 +54,9 @@ function AnimatedRoutes() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/strategies" element={<StrategyPage />} />
           <Route path="/backtester" element={<BacktesterPage />} />
+          <Route path="/portfolios" element={<PortfoliosPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/help" element={<HelpPage />} />
         </Route>
       </Routes>
     </AnimatePresence>

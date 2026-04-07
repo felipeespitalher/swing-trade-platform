@@ -82,6 +82,7 @@ export default function StrategyPage() {
     setPanelMode(selectedStrategy ? 'view' : 'view');
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function handleRunBacktest(_id: string) {
     // TODO: implement backtest runner
   }

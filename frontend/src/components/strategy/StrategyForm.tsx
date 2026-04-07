@@ -91,6 +91,7 @@ export function StrategyForm({ initial, onSubmit, onCancel, isSubmitting }: Stra
       stop_loss_pct: values.stop_loss_pct,
       take_profit_pct: values.take_profit_pct,
       status: initial?.status ?? 'inactive',
+      portfolio_id: initial?.portfolio_id ?? null,
     });
   }
 

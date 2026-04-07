@@ -2,6 +2,7 @@
 Exchange API Key model for SQLAlchemy ORM.
 
 Defines the ExchangeKey entity for storing encrypted API credentials.
+Supports crypto exchanges (Binance, etc.) and B3 brokers (Clear/XP, Profit Pro).
 """
 
 from sqlalchemy import (
@@ -34,6 +35,7 @@ class ExchangeKey(Base):
         index=True,
     )
     exchange = Column(String(50), nullable=False)
+    label = Column(String(100), nullable=True)
     api_key_encrypted = Column(String, nullable=False)
     api_secret_encrypted = Column(String, nullable=False)
     encryption_iv = Column(String(50), default="v1")
@@ -59,9 +61,8 @@ class ExchangeKey(Base):
     )
 
     def __repr__(self) -> str:
-        """String representation of ExchangeKey."""
         return (
             f"<ExchangeKey(id={self.id}, user_id={self.user_id}, "
-            f"exchange={self.exchange}, is_testnet={self.is_testnet}, "
+            f"exchange={self.exchange}, label={self.label}, is_testnet={self.is_testnet}, "
             f"is_active={self.is_active})>"
         )

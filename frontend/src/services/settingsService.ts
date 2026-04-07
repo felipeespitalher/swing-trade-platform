@@ -32,6 +32,16 @@ function toSettings(u: BackendUser): UserSettings {
   };
 }
 
+export interface AuditLog {
+  id: string;
+  action: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
 export interface ExchangeKey {
   id: string;
   exchange: string;
@@ -80,5 +90,12 @@ export const settingsService = {
 
   async deleteExchangeKey(id: string): Promise<void> {
     await api.delete(`/api/exchange-keys/${id}`);
+  },
+
+  async getAuditLogs(limit = 20, offset = 0): Promise<{ logs: AuditLog[]; total: number }> {
+    const response = await api.get<{ logs: AuditLog[]; total: number; limit: number; offset: number }>(
+      `/api/audit/me?limit=${limit}&offset=${offset}`,
+    );
+    return { logs: response.data.logs ?? [], total: response.data.total ?? 0 };
   },
 };

@@ -15,6 +15,7 @@ export interface Strategy {
   exit_condition: string;
   stop_loss_pct: number;
   take_profit_pct: number;
+  portfolio_id: string | null;
 }
 
 // Backend response shape
@@ -31,6 +32,7 @@ interface BackendStrategy {
   win_rate: number | null;
   total_trades: number;
   last_run: string | null;
+  portfolio_id: string | null;
 }
 
 function toFrontend(s: BackendStrategy): Strategy {
@@ -49,6 +51,7 @@ function toFrontend(s: BackendStrategy): Strategy {
     exit_condition: (s.config.exit_condition as string) ?? '',
     stop_loss_pct: (s.config.stop_loss_pct as number) ?? 3,
     take_profit_pct: (s.config.take_profit_pct as number) ?? 8,
+    portfolio_id: s.portfolio_id ?? null,
   };
 }
 
@@ -60,6 +63,7 @@ function toBackendCreate(data: CreateInput) {
     type: 'rsi_macd',
     symbol: data.symbols[0] ?? 'BTC/USDT',
     timeframe: data.timeframe,
+    portfolio_id: data.portfolio_id ?? undefined,
     config: {
       description: data.description ?? '',
       entry_condition: data.entry_condition,

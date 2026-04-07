@@ -2,9 +2,10 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Zap,
-  TrendingUp,
   BarChart,
+  Wallet,
   Settings,
+  BookOpen,
 } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 import { ROUTES } from '../../config/routes';
@@ -18,10 +19,11 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: ROUTES.DASHBOARD, icon: LayoutDashboard },
-  { label: 'Strategies', href: ROUTES.STRATEGIES, icon: Zap },
-  { label: 'Trades', href: '/trades', icon: TrendingUp },
+  { label: 'Estratégias', href: ROUTES.STRATEGIES, icon: Zap },
+  { label: 'Carteiras', href: ROUTES.PORTFOLIOS, icon: Wallet },
   { label: 'Backtester', href: ROUTES.BACKTESTER, icon: BarChart },
-  { label: 'Settings', href: ROUTES.SETTINGS, icon: Settings },
+  { label: 'Configurações', href: ROUTES.SETTINGS, icon: Settings },
+  { label: 'Guia de Uso', href: ROUTES.HELP, icon: BookOpen },
 ];
 
 export function Sidebar() {

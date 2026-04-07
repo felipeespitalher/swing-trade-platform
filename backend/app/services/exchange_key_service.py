@@ -48,6 +48,7 @@ class ExchangeKeyService:
         api_key: str,
         api_secret: str,
         is_testnet: bool = True,
+        label: Optional[str] = None,
     ) -> ExchangeKey:
         """
         Add a new exchange API key (encrypted).
@@ -98,6 +99,7 @@ class ExchangeKeyService:
         exchange_key = ExchangeKey(
             user_id=user_id,
             exchange=exchange.lower(),
+            label=label,
             api_key_encrypted=encrypted_key,
             api_secret_encrypted=encrypted_secret,
             is_testnet=is_testnet,

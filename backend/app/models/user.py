@@ -37,6 +37,9 @@ class User(Base):
     strategies = relationship(
         "Strategy", back_populates="user", cascade="all, delete-orphan"
     )
+    portfolios = relationship(
+        "Portfolio", back_populates="user", cascade="all, delete-orphan"
+    )
     audit_logs = relationship(
         "AuditLog", back_populates="user", cascade="all, delete-orphan"
     )

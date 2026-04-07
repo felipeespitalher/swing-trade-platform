@@ -25,6 +25,12 @@ class Strategy(Base):
         nullable=False,
         index=True,
     )
+    portfolio_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("portfolios.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     name = Column(String(255), nullable=False)
     description = Column(String, nullable=True)
     type = Column(String(50), nullable=False)
@@ -38,10 +44,9 @@ class Strategy(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
     )
 
-    # Relationship to User
+    # Relationships
     user = relationship("User", back_populates="strategies")
-
-    # Relationship to Trades
+    portfolio = relationship("Portfolio", back_populates="strategies")
     trades = relationship(
         "Trade", back_populates="strategy", cascade="all, delete-orphan"
     )
@@ -50,10 +55,10 @@ class Strategy(Base):
         Index("idx_strategies_user", "user_id"),
         Index("idx_strategies_user_active", "user_id", "is_active"),
         Index("idx_strategies_created", "created_at"),
+        Index("idx_strategies_portfolio", "portfolio_id"),
     )
 
     def __repr__(self) -> str:
-        """String representation of Strategy."""
         return (
             f"<Strategy(id={self.id}, user_id={self.user_id}, "
             f"name={self.name}, type={self.type}, is_active={self.is_active})>"

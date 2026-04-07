@@ -13,11 +13,12 @@ import {
   Key,
   User,
   SlidersHorizontal,
+  BarChart2,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useTheme } from '@/context/ThemeContext';
 import { useNotification } from '@/hooks/useNotification';
-import { settingsService, type ExchangeKey } from '@/services/settingsService';
+import { settingsService, type ExchangeKey, type AuditLog } from '@/services/settingsService';
 
 const pageVariants = {
   initial: { opacity: 0, y: 10 },
@@ -58,17 +59,20 @@ const exchangeKeySchema = z.object({
 });
 type ExchangeKeyValues = z.infer<typeof exchangeKeySchema>;
 
-// ─── Mock audit log ───────────────────────────────────────────────────────────
-const AUDIT_LOG = [
-  { id: '1', action: 'Login realizado', date: '2026-04-02 09:15', ip: '192.168.1.1' },
-  { id: '2', action: 'Estratégia criada', date: '2026-04-01 14:30', ip: '192.168.1.1' },
-  { id: '3', action: 'Backtest executado', date: '2026-03-30 11:00', ip: '192.168.1.1' },
-  { id: '4', action: 'Senha alterada', date: '2026-03-28 16:45', ip: '192.168.1.2' },
-  { id: '5', action: 'Chave de exchange adicionada', date: '2026-03-25 10:20', ip: '192.168.1.1' },
-];
+// ─── Investor profile schema ──────────────────────────────────────────────────
+const PROFILE_STORAGE_KEY = 'stap_investor_profile';
+
+const profileSchema = z.object({
+  risk_profile: z.enum(['conservador', 'moderado', 'agressivo']),
+  experience: z.enum(['iniciante', 'intermediario', 'avancado']),
+  preferred_markets: z.string().min(1, 'Informe ao menos um mercado'),
+  monthly_capital: z.coerce.number().min(0, 'Valor inválido'),
+  investment_goal: z.string().min(1, 'Informe seu objetivo'),
+});
+type ProfileValues = z.infer<typeof profileSchema>;
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
-type TabId = 'account' | 'exchanges' | 'preferences' | 'security';
+type TabId = 'account' | 'exchanges' | 'preferences' | 'security' | 'profile';
 
 interface Tab {
   id: TabId;
@@ -78,6 +82,7 @@ interface Tab {
 
 const TABS: Tab[] = [
   { id: 'account', label: 'Conta', icon: User },
+  { id: 'profile', label: 'Perfil de Investidor', icon: BarChart2 },
   { id: 'exchanges', label: 'Chaves de Exchange', icon: Key },
   { id: 'preferences', label: 'Preferências', icon: SlidersHorizontal },
   { id: 'security', label: 'Segurança', icon: Shield },
@@ -311,12 +316,18 @@ function ExchangeKeysTab() {
         >
           <h3 className="text-sm font-semibold text-white">Nova Chave de API</h3>
 
-          <InputField id="exchange" label="Exchange" error={errors.exchange?.message}>
+          <InputField id="exchange" label="Exchange / Corretora" error={errors.exchange?.message}>
             <select id="exchange" {...register('exchange')} className={inputCls}>
               <option value="">Selecione...</option>
-              <option value="Binance">Binance</option>
-              <option value="Coinbase">Coinbase</option>
-              <option value="Kraken">Kraken</option>
+              <optgroup label="Cripto (24/7)">
+                <option value="binance">Binance</option>
+                <option value="coinbase">Coinbase</option>
+                <option value="kraken">Kraken</option>
+              </optgroup>
+              <optgroup label="B3 — Bolsa Brasileira (seg–sex 10h–17h55)">
+                <option value="clear_xp">Clear / XP Investimentos</option>
+                <option value="profit_pro">Profit Pro (Nelogica)</option>
+              </optgroup>
             </select>
           </InputField>
 
@@ -491,6 +502,141 @@ function PreferencesTab() {
   );
 }
 
+// ─── Investor Profile Tab ─────────────────────────────────────────────────────
+function InvestorProfileTab() {
+  const notify = useNotification();
+  const [saving, setSaving] = useState(false);
+
+  const saved = (() => {
+    try {
+      const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as ProfileValues) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ProfileValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: saved ?? {
+      risk_profile: 'moderado',
+      experience: 'iniciante',
+      preferred_markets: '',
+      monthly_capital: 0,
+      investment_goal: '',
+    },
+  });
+
+  async function onSubmit(values: ProfileValues) {
+    setSaving(true);
+    try {
+      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(values));
+      notify.success('Perfil salvo', 'Seu perfil de investidor foi atualizado.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const riskLabels: Record<string, { label: string; desc: string; color: string }> = {
+    conservador: { label: 'Conservador', desc: 'Prioriza preservação de capital, baixa tolerância ao risco', color: 'border-emerald-500 bg-emerald-900/20 text-emerald-400' },
+    moderado: { label: 'Moderado', desc: 'Equilibrio entre crescimento e proteção, risco controlado', color: 'border-blue-500 bg-blue-900/20 text-blue-400' },
+    agressivo: { label: 'Agressivo', desc: 'Busca retornos acima da média, alta tolerância ao risco', color: 'border-red-500 bg-red-900/20 text-red-400' },
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-lg">
+      <div>
+        <p className="text-sm text-slate-400 mb-4">
+          Defina seu perfil para que o sistema possa sugerir estratégias e limites de risco adequados ao seu estilo de investimento.
+        </p>
+      </div>
+
+      {/* Risk profile */}
+      <div>
+        <p className="text-sm font-semibold text-white mb-3">Perfil de Risco</p>
+        <div className="space-y-2">
+          {(['conservador', 'moderado', 'agressivo'] as const).map((value) => {
+            const meta = riskLabels[value];
+            return (
+              <label key={value} className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-700 bg-slate-800/50 p-3 hover:border-slate-500 transition-colors has-[:checked]:border-current">
+                <input
+                  type="radio"
+                  value={value}
+                  {...register('risk_profile')}
+                  className="mt-0.5 accent-blue-500"
+                />
+                <div>
+                  <span className={`text-sm font-medium ${meta.color.split(' ').at(-1)}`}>{meta.label}</span>
+                  <p className="text-xs text-slate-400 mt-0.5">{meta.desc}</p>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+        {errors.risk_profile && <p className="mt-1 text-xs text-red-400">{errors.risk_profile.message}</p>}
+      </div>
+
+      {/* Experience */}
+      <InputField id="experience" label="Nível de Experiência" error={errors.experience?.message}>
+        <select id="experience" {...register('experience')} className={inputCls}>
+          <option value="iniciante">Iniciante (menos de 1 ano)</option>
+          <option value="intermediario">Intermediário (1–3 anos)</option>
+          <option value="avancado">Avançado (mais de 3 anos)</option>
+        </select>
+      </InputField>
+
+      {/* Preferred markets */}
+      <InputField id="preferred_markets" label="Mercados de Interesse" error={errors.preferred_markets?.message}>
+        <input
+          id="preferred_markets"
+          type="text"
+          placeholder="Ex: BTC, ETH, Forex, Ações"
+          {...register('preferred_markets')}
+          className={inputCls}
+        />
+        <p className="mt-1 text-xs text-slate-500">Separe por vírgula.</p>
+      </InputField>
+
+      {/* Monthly capital */}
+      <InputField id="monthly_capital" label="Capital Disponível para Trading (R$)" error={errors.monthly_capital?.message}>
+        <input
+          id="monthly_capital"
+          type="number"
+          step={100}
+          min={0}
+          placeholder="0"
+          {...register('monthly_capital')}
+          className={inputCls}
+        />
+      </InputField>
+
+      {/* Investment goal */}
+      <InputField id="investment_goal" label="Objetivo de Investimento" error={errors.investment_goal?.message}>
+        <textarea
+          id="investment_goal"
+          rows={3}
+          placeholder="Ex: Renda complementar, aposentadoria, crescimento patrimonial..."
+          {...register('investment_goal')}
+          className={`${inputCls} resize-none`}
+        />
+      </InputField>
+
+      <button
+        type="submit"
+        disabled={saving}
+        className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500 disabled:opacity-60"
+      >
+        {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+        Salvar Perfil
+      </button>
+    </form>
+  );
+}
+
 // ─── Security Tab ─────────────────────────────────────────────────────────────
 function SecurityTab() {
   const [saving, setSaving] = useState(false);
@@ -498,6 +644,8 @@ function SecurityTab() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const notify = useNotification();
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditLoading, setAuditLoading] = useState(true);
 
   const {
     register,
@@ -507,6 +655,14 @@ function SecurityTab() {
   } = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
   });
+
+  useEffect(() => {
+    settingsService
+      .getAuditLogs(20, 0)
+      .then(({ logs }) => setAuditLogs(logs))
+      .catch(() => setAuditLogs([]))
+      .finally(() => setAuditLoading(false));
+  }, []);
 
   async function onSubmit(values: PasswordValues) {
     setSaving(true);
@@ -518,6 +674,17 @@ function SecurityTab() {
       notify.error('Erro', 'Senha atual incorreta ou nova senha inválida.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  function formatDate(iso: string) {
+    try {
+      return new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }).format(new Date(iso));
+    } catch {
+      return iso;
     }
   }
 
@@ -607,44 +774,38 @@ function SecurityTab() {
         </form>
       </div>
 
-      {/* Active sessions */}
-      <div>
-        <h3 className="mb-3 text-sm font-semibold text-white">Sessões Ativas</h3>
-        <div className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-white">Sessão atual</p>
-              <p className="text-xs text-slate-400">Chrome / Windows — 192.168.1.1</p>
-            </div>
-            <span className="rounded-full bg-emerald-900/50 px-2 py-0.5 text-xs text-emerald-400">
-              Ativa
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* Audit log */}
       <div>
         <h3 className="mb-3 text-sm font-semibold text-white">Log de Auditoria</h3>
         <div className="rounded-lg border border-slate-700 bg-slate-900 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-700 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-                <th className="px-4 py-3">Ação</th>
-                <th className="px-4 py-3">Data</th>
-                <th className="px-4 py-3">IP</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {AUDIT_LOG.map((entry) => (
-                <tr key={entry.id} className="hover:bg-slate-800/50 transition-colors">
-                  <td className="px-4 py-2.5 text-slate-300">{entry.action}</td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{entry.date}</td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{entry.ip}</td>
+          {auditLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+            </div>
+          ) : auditLogs.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-slate-500 text-center">Nenhum registro de auditoria encontrado.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-700 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
+                  <th className="px-4 py-3">Ação</th>
+                  <th className="px-4 py-3">Recurso</th>
+                  <th className="px-4 py-3">Data</th>
+                  <th className="px-4 py-3">IP</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {auditLogs.map((entry) => (
+                  <tr key={entry.id} className="hover:bg-slate-800/50 transition-colors">
+                    <td className="px-4 py-2.5 text-slate-300">{entry.action}</td>
+                    <td className="px-4 py-2.5 text-xs text-slate-400">{entry.resource_type ?? '—'}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{formatDate(entry.created_at)}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{entry.ip_address ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
@@ -698,6 +859,7 @@ export default function SettingsPage() {
       {/* Tab content */}
       <div className="rounded-lg border border-slate-700 bg-slate-900 p-5">
         {activeTab === 'account' && <AccountTab />}
+        {activeTab === 'profile' && <InvestorProfileTab />}
         {activeTab === 'exchanges' && <ExchangeKeysTab />}
         {activeTab === 'preferences' && <PreferencesTab />}
         {activeTab === 'security' && <SecurityTab />}

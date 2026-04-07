@@ -37,7 +37,7 @@ DEFAULT_RETRY_DELAY = 1.0  # seconds (exponential backoff multiplier)
 SUPPORTED_TIMEFRAMES = {"1h", "4h", "1d"}
 
 # Supported symbols for Phase 2
-SUPPORTED_SYMBOLS = {"BTC/USDT", "ETH/USDT"}
+SUPPORTED_SYMBOLS = {"BTC/USDT", "ETH/USDT", "PETR4/BRL", "KNRI11/BRL", "VALE3/BRL", "BBAS3/BRL"}
 
 
 class ExchangeAdapter(ABC):
@@ -281,11 +281,16 @@ def create_exchange_adapter(
     """
     Factory function for creating exchange adapters.
 
+    Supports:
+    - binance: Binance crypto exchange (CCXT)
+    - clear_xp: Clear/XP Investimentos (B3)
+    - profit_pro: Profit Pro / Nelogica (B3)
+
     Args:
-        exchange_id: Exchange identifier (e.g., 'binance')
+        exchange_id: Exchange identifier
         api_key: Exchange API key
         api_secret: Exchange API secret
-        testnet: Use testnet if True
+        testnet: Use testnet/paper mode if True
 
     Returns:
         ExchangeAdapter instance
@@ -293,21 +298,37 @@ def create_exchange_adapter(
     Raises:
         ValueError: If exchange_id is not supported
     """
-    adapters = {
+    # Import B3 adapters here to avoid circular imports
+    from app.services.b3_adapters import ClearXPAdapter, ProfitProAdapter
+
+    crypto_adapters = {
         "binance": BinanceAdapter,
     }
 
-    adapter_class = adapters.get(exchange_id.lower())
-    if not adapter_class:
-        supported = ", ".join(adapters.keys())
-        raise ValueError(
-            f"Unsupported exchange: {exchange_id!r}. Supported: {supported}"
+    b3_adapters = {
+        "clear_xp": ClearXPAdapter,
+        "profit_pro": ProfitProAdapter,
+    }
+
+    exchange_lower = exchange_id.lower()
+
+    if exchange_lower in crypto_adapters:
+        return crypto_adapters[exchange_lower](
+            api_key=api_key,
+            api_secret=api_secret,
+            testnet=testnet,
         )
 
-    return adapter_class(
-        api_key=api_key,
-        api_secret=api_secret,
-        testnet=testnet,
+    if exchange_lower in b3_adapters:
+        return b3_adapters[exchange_lower](
+            api_key=api_key,
+            api_secret=api_secret,
+            testnet=testnet,
+        )
+
+    all_supported = ", ".join(sorted(list(crypto_adapters.keys()) + list(b3_adapters.keys())))
+    raise ValueError(
+        f"Unsupported exchange: {exchange_id!r}. Supported: {all_supported}"
     )
 
 

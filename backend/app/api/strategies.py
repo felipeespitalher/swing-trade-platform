@@ -41,6 +41,7 @@ class StrategyCreate(BaseModel):
     config: dict
     symbol: str = "BTC/USDT"
     timeframe: str = "1h"
+    portfolio_id: Optional[str] = None
 
     @field_validator("type")
     @classmethod
@@ -66,6 +67,7 @@ class StrategyUpdate(BaseModel):
     config: Optional[dict] = None
     symbol: Optional[str] = None
     timeframe: Optional[str] = None
+    portfolio_id: Optional[str] = None
 
     @field_validator("timeframe")
     @classmethod
@@ -96,6 +98,7 @@ class StrategyResponse(BaseModel):
     symbol: str
     timeframe: str
     is_active: bool
+    portfolio_id: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime]
     win_rate: Optional[float] = None
@@ -121,6 +124,7 @@ class StrategyResponse(BaseModel):
             symbol=config.get("symbol", "BTC/USDT"),
             timeframe=config.get("timeframe", "1h"),
             is_active=strategy.is_active,
+            portfolio_id=str(strategy.portfolio_id) if strategy.portfolio_id else None,
             created_at=strategy.created_at,
             updated_at=strategy.updated_at,
             win_rate=s.get("win_rate"),
@@ -211,6 +215,13 @@ def create_strategy(
     merged_config["symbol"] = data.symbol
     merged_config["timeframe"] = data.timeframe
 
+    portfolio_id = None
+    if data.portfolio_id:
+        try:
+            portfolio_id = uuid.UUID(data.portfolio_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid portfolio_id")
+
     strategy = Strategy(
         id=uuid.uuid4(),
         user_id=user_id,
@@ -218,6 +229,7 @@ def create_strategy(
         type=data.type,
         config=merged_config,
         is_active=False,
+        portfolio_id=portfolio_id,
     )
     db.add(strategy)
     db.commit()
@@ -262,6 +274,15 @@ def update_strategy(
         if data.timeframe is not None:
             current_config["timeframe"] = data.timeframe
         strategy.config = current_config
+
+    if data.portfolio_id is not None:
+        if data.portfolio_id == "":
+            strategy.portfolio_id = None
+        else:
+            try:
+                strategy.portfolio_id = uuid.UUID(data.portfolio_id)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid portfolio_id")
 
     strategy.updated_at = datetime.now(timezone.utc)
     db.commit()

@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import auth, users, exchange_keys, health, audit
-from app.api import strategies
+from app.api import strategies, portfolios
 from app.api.backtest import router as backtest_router
 from app.api.dashboard import router as dashboard_router
 from app.api.market_data import router as market_data_router
@@ -213,6 +213,7 @@ app.include_router(exchange_keys.router)
 app.include_router(audit.router)
 app.include_router(health.router)  # Health and metrics endpoints
 app.include_router(strategies.router)
+app.include_router(portfolios.router)
 app.include_router(market_data_router)
 app.include_router(paper_trading_router)
 app.include_router(ws_router)

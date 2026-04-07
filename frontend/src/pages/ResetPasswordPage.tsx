@@ -18,7 +18,7 @@ const resetSchema = z
       .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula')
       .regex(/[a-z]/, 'Deve conter ao menos uma letra minúscula')
       .regex(/\d/, 'Deve conter ao menos um número')
-      .regex(/[!@#$%^&*()_+\-=\[\]{};:'",./<>?]/, 'Deve conter ao menos um caractere especial'),
+      .regex(/[!@#$%^&*()_+=[\]{};:'",./<>?-]/, 'Deve conter ao menos um caractere especial'),
     confirm_password: z.string().min(1, 'Confirme a nova senha'),
   })
   .refine((d) => d.new_password === d.confirm_password, {

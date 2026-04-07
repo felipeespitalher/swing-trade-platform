@@ -83,3 +83,5 @@ Thumbs.db
 # IDE general
 *.sublime-project
 *.sublime-workspace
+
+.vercel

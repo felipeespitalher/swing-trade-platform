@@ -38,6 +38,7 @@ async def health_check() -> Dict[str, Any]:
     """
     health = await MonitoringService.get_health_status()
     logger.debug("Health check performed", extra={"status": health["status"]})
+    # Always return 200 — Railway uses HTTP status, not body content, for healthcheck
     return health
 
 

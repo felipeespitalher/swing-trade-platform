@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import { StrategyCard } from '@/components/strategy/StrategyCard';
@@ -16,6 +17,7 @@ import type { Strategy } from '@/services/strategyService';
 type PanelMode = 'view' | 'create' | 'edit';
 
 export default function StrategyPage() {
+  const navigate = useNavigate();
   const { data: strategies, isLoading } = useStrategies();
   const createMutation = useCreateStrategy();
   const updateMutation = useUpdateStrategy();
@@ -82,9 +84,8 @@ export default function StrategyPage() {
     setPanelMode(selectedStrategy ? 'view' : 'view');
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  function handleRunBacktest(_id: string) {
-    // TODO: implement backtest runner
+  function handleRunBacktest(id: string) {
+    navigate(`/backtester?strategy_id=${id}`);
   }
 
   const isFormSubmitting = createMutation.isPending || updateMutation.isPending;

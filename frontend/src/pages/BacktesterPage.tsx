@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BacktestForm } from '@/components/backtester/BacktestForm';
 import { BacktestStatus } from '@/components/backtester/BacktestStatus';
@@ -14,6 +15,8 @@ const pageVariants = {
 };
 
 export default function BacktesterPage() {
+  const [searchParams] = useSearchParams();
+  const initialStrategyId = searchParams.get('strategy_id') ?? undefined;
   const { result, isRunning, error, runBacktest } = useBacktest();
   const notify = useNotification();
 
@@ -46,7 +49,7 @@ export default function BacktesterPage() {
       {/* Section 1: Form */}
       <div className="rounded-lg border border-slate-700 bg-slate-900 p-5">
         <h2 className="mb-4 text-sm font-semibold text-white">Configurar Simulação</h2>
-        <BacktestForm onSubmit={handleSubmit} isRunning={isRunning} />
+        <BacktestForm onSubmit={handleSubmit} isRunning={isRunning} initialStrategyId={initialStrategyId} />
       </div>
 
       {/* Section 2: Status / Results */}

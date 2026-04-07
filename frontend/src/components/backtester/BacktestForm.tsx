@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -28,24 +29,33 @@ type FormValues = z.infer<typeof schema>;
 interface BacktestFormProps {
   onSubmit: (data: BacktestRequest) => void;
   isRunning: boolean;
+  initialStrategyId?: string;
 }
 
-export function BacktestForm({ onSubmit, isRunning }: BacktestFormProps) {
+export function BacktestForm({ onSubmit, isRunning, initialStrategyId }: BacktestFormProps) {
   const { data: strategies, isLoading: loadingStrategies } = useStrategies();
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
+      strategy_id: initialStrategyId ?? '',
       symbol: 'BTC/USDT',
       initial_capital: 10000,
       start_date: '2025-01-01',
       end_date: '2026-01-01',
     },
   });
+
+  useEffect(() => {
+    if (initialStrategyId) {
+      setValue('strategy_id', initialStrategyId);
+    }
+  }, [initialStrategyId, setValue]);
 
   function handleFormSubmit(values: FormValues) {
     onSubmit(values);

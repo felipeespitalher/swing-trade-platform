@@ -86,7 +86,7 @@ class EmailService:
         first_name: str,
     ) -> bool:
         frontend_url = getattr(settings, "frontend_url", "http://localhost:5173")
-        url = f"{frontend_url}/api/auth/verify/{verification_token}"
+        url = f"{frontend_url}/auth/verify?token={verification_token}"
 
         subject = "Verifique seu e-mail — Swing Trade Platform"
         html = f"""

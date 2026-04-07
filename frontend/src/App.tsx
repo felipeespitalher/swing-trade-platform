@@ -20,6 +20,7 @@ const StrategyPage = lazy(() => import('./pages/StrategyPage'));
 const BacktesterPage = lazy(() => import('./pages/BacktesterPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -37,6 +38,7 @@ function AnimatedRoutes() {
         <Route path="/auth/register" element={<RegisterPage />} />
         <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/auth/verify" element={<VerifyEmailPage />} />
 
         {/* Protected routes */}
         <Route

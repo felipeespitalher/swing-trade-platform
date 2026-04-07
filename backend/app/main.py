@@ -34,55 +34,14 @@ logger = logging.getLogger(__name__)
 
 
 def _run_migrations():
-    """Run SQL migrations on startup."""
-    import os, re, psycopg2
-    from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-
-    db_url = settings.database_url
-    migrations_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "migrations")
-
-    if not os.path.isdir(migrations_dir):
-        logger.warning(f"Migrations dir not found: {migrations_dir}")
-        return
-
+    """Create all tables using SQLAlchemy metadata."""
     try:
-        conn = psycopg2.connect(db_url)
-        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-                version INTEGER PRIMARY KEY,
-                filename VARCHAR(255) NOT NULL,
-                applied_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        cur.execute("SELECT version FROM schema_migrations")
-        applied = {row[0] for row in cur.fetchall()}
-
-        def version_of(f):
-            m = re.match(r"V(\d+)__", f)
-            return int(m.group(1)) if m else -1
-
-        files = sorted(
-            [f for f in os.listdir(migrations_dir) if f.endswith(".sql") and version_of(f) > 0],
-            key=version_of,
-        )
-        for filename in files:
-            v = version_of(filename)
-            if v in applied:
-                continue
-            sql = open(os.path.join(migrations_dir, filename), encoding="utf-8").read()
-            try:
-                cur.execute(sql)
-                cur.execute("INSERT INTO schema_migrations (version, filename) VALUES (%s, %s)", (v, filename))
-                logger.info(f"Migration applied: {filename}")
-            except Exception as e:
-                logger.warning(f"Migration {filename} skipped: {e}")
-        cur.close()
-        conn.close()
-        logger.info("Migrations complete")
+        from app.db.session import engine
+        from app.models import Base
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created/verified")
     except Exception as e:
-        logger.error(f"Migration failed: {e}")
+        logger.error(f"Failed to create tables: {e}")
 
 
 @asynccontextmanager

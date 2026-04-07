@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 
-SUPPORTED_STRATEGY_TYPES = {"rsi_only", "macd_only", "rsi_macd"}
+SUPPORTED_STRATEGY_TYPES = {"rsi_only", "macd_only", "rsi_macd", "bb_only", "sma_crossover", "ema_crossover"}
 SUPPORTED_TIMEFRAMES = {"1h", "4h", "1d"}
 
 

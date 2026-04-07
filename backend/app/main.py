@@ -16,8 +16,10 @@ from app.api import auth, users, exchange_keys, health, audit
 from app.api import strategies, portfolios
 from app.api.backtest import router as backtest_router
 from app.api.dashboard import router as dashboard_router
+from app.api.fundamentals import router as fundamentals_router
 from app.api.market_data import router as market_data_router
 from app.api.paper_trading import router as paper_trading_router
+from app.api.reports import router as reports_router
 from app.api.ws import router as ws_router
 from app.core.config import settings
 from app.core.logging import setup_logging
@@ -219,6 +221,8 @@ app.include_router(paper_trading_router)
 app.include_router(ws_router)
 app.include_router(backtest_router)
 app.include_router(dashboard_router)
+app.include_router(reports_router)
+app.include_router(fundamentals_router)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,9 @@ Supported strategy types:
 - rsi_only: RSI-based signals (oversold=BUY, overbought=SELL)
 - macd_only: MACD crossover signals
 - rsi_macd: Combined RSI + MACD confirmation
+- bb_only: Bollinger Bands (price < lower band=BUY, price > upper band=SELL)
+- sma_crossover: Simple Moving Average crossover (fast > slow=BUY, fast < slow=SELL)
+- ema_crossover: Exponential Moving Average crossover (fast > slow=BUY, fast < slow=SELL)
 
 TA-Lib is the primary indicator library. pandas-ta is used as fallback
 if TA-Lib C library is not available.
@@ -39,9 +42,12 @@ class Signal(str, Enum):
 
 # Minimum candles needed for each strategy
 MIN_CANDLES = {
-    "rsi_only": 14,     # RSI period
-    "macd_only": 26,    # MACD slow period
-    "rsi_macd": 26,     # Max of RSI + MACD requirements
+    "rsi_only": 14,          # RSI period
+    "macd_only": 26,         # MACD slow period
+    "rsi_macd": 26,          # Max of RSI + MACD requirements
+    "bb_only": 20,           # Bollinger Bands default period
+    "sma_crossover": 21,     # Slow SMA default period
+    "ema_crossover": 21,     # Slow EMA default period
 }
 
 DEFAULT_RSI_PERIOD = 14
@@ -50,6 +56,12 @@ DEFAULT_RSI_OVERBOUGHT = 70.0
 DEFAULT_MACD_FAST = 12
 DEFAULT_MACD_SLOW = 26
 DEFAULT_MACD_SIGNAL = 9
+DEFAULT_BB_PERIOD = 20
+DEFAULT_BB_STD = 2.0
+DEFAULT_SMA_FAST = 9
+DEFAULT_SMA_SLOW = 21
+DEFAULT_EMA_FAST = 9
+DEFAULT_EMA_SLOW = 21
 
 
 def _compute_rsi_numpy(closes: np.ndarray, period: int) -> Optional[float]:
@@ -203,6 +215,46 @@ def _compute_macd(
     return _compute_macd_numpy(closes, fast, slow, signal)
 
 
+def _compute_sma(closes: np.ndarray, period: int) -> Optional[float]:
+    """Return the most recent SMA value, or None if insufficient data."""
+    if len(closes) < period:
+        return None
+    return float(np.mean(closes[-period:]))
+
+
+def _compute_ema(closes: np.ndarray, period: int) -> Optional[float]:
+    """
+    Return the most recent EMA value using exponential smoothing.
+    Returns None if insufficient data.
+    """
+    if len(closes) < period:
+        return None
+    k = 2.0 / (period + 1)
+    ema = float(closes[0])
+    for price in closes[1:]:
+        ema = float(price) * k + ema * (1.0 - k)
+    return ema
+
+
+def _compute_bollinger_bands(
+    closes: np.ndarray,
+    period: int,
+    num_std: float,
+) -> tuple:
+    """
+    Compute Bollinger Bands upper and lower values.
+    Returns (upper, lower) or (None, None) if insufficient data.
+    """
+    if len(closes) < period:
+        return None, None
+    window = closes[-period:]
+    sma = float(np.mean(window))
+    std = float(np.std(window, ddof=0))
+    upper = sma + num_std * std
+    lower = sma - num_std * std
+    return upper, lower
+
+
 class SignalGenerator:
     """
     Evaluates strategy configurations against OHLCV close prices.
@@ -222,7 +274,8 @@ class SignalGenerator:
         Evaluate a strategy configuration against close prices.
 
         Args:
-            strategy_type: One of 'rsi_only', 'macd_only', 'rsi_macd'
+            strategy_type: One of 'rsi_only', 'macd_only', 'rsi_macd',
+                           'bb_only', 'sma_crossover', 'ema_crossover'
             config: Strategy parameters dict
             closes: numpy array of close prices (float64), oldest first
 
@@ -232,7 +285,7 @@ class SignalGenerator:
         Raises:
             ValueError: If strategy_type is not supported
         """
-        supported = {"rsi_only", "macd_only", "rsi_macd"}
+        supported = {"rsi_only", "macd_only", "rsi_macd", "bb_only", "sma_crossover", "ema_crossover"}
         if strategy_type not in supported:
             raise ValueError(
                 f"Unsupported strategy type: {strategy_type!r}. "
@@ -253,6 +306,12 @@ class SignalGenerator:
             return self._evaluate_macd(config, closes)
         elif strategy_type == "rsi_macd":
             return self._evaluate_rsi_macd(config, closes)
+        elif strategy_type == "bb_only":
+            return self._evaluate_bb(config, closes)
+        elif strategy_type == "sma_crossover":
+            return self._evaluate_sma_crossover(config, closes)
+        elif strategy_type == "ema_crossover":
+            return self._evaluate_ema_crossover(config, closes)
 
         return Signal.HOLD
 
@@ -301,5 +360,61 @@ class SignalGenerator:
         if rsi_signal == Signal.BUY and macd_signal == Signal.BUY:
             return Signal.BUY
         elif rsi_signal == Signal.SELL and macd_signal == Signal.SELL:
+            return Signal.SELL
+        return Signal.HOLD
+
+    def _evaluate_bb(self, config: dict, closes: np.ndarray) -> Signal:
+        """Bollinger Bands signal: price < lower band → BUY, price > upper band → SELL."""
+        period = int(config.get("bb_period", DEFAULT_BB_PERIOD))
+        num_std = float(config.get("bb_std", DEFAULT_BB_STD))
+
+        upper, lower = _compute_bollinger_bands(closes, period, num_std)
+        if upper is None or lower is None:
+            return Signal.HOLD
+
+        current_price = float(closes[-1])
+        logger.debug(f"BB price={current_price:.4f} upper={upper:.4f} lower={lower:.4f}")
+
+        if current_price < lower:
+            return Signal.BUY
+        elif current_price > upper:
+            return Signal.SELL
+        return Signal.HOLD
+
+    def _evaluate_sma_crossover(self, config: dict, closes: np.ndarray) -> Signal:
+        """SMA crossover: fast SMA > slow SMA → BUY, fast SMA < slow SMA → SELL."""
+        fast_period = int(config.get("sma_fast", DEFAULT_SMA_FAST))
+        slow_period = int(config.get("sma_slow", DEFAULT_SMA_SLOW))
+
+        fast_sma = _compute_sma(closes, fast_period)
+        slow_sma = _compute_sma(closes, slow_period)
+
+        if fast_sma is None or slow_sma is None:
+            return Signal.HOLD
+
+        logger.debug(f"SMA fast={fast_sma:.4f} slow={slow_sma:.4f}")
+
+        if fast_sma > slow_sma:
+            return Signal.BUY
+        elif fast_sma < slow_sma:
+            return Signal.SELL
+        return Signal.HOLD
+
+    def _evaluate_ema_crossover(self, config: dict, closes: np.ndarray) -> Signal:
+        """EMA crossover: fast EMA > slow EMA → BUY, fast EMA < slow EMA → SELL."""
+        fast_period = int(config.get("ema_fast", DEFAULT_EMA_FAST))
+        slow_period = int(config.get("ema_slow", DEFAULT_EMA_SLOW))
+
+        fast_ema = _compute_ema(closes, fast_period)
+        slow_ema = _compute_ema(closes, slow_period)
+
+        if fast_ema is None or slow_ema is None:
+            return Signal.HOLD
+
+        logger.debug(f"EMA fast={fast_ema:.4f} slow={slow_ema:.4f}")
+
+        if fast_ema > slow_ema:
+            return Signal.BUY
+        elif fast_ema < slow_ema:
             return Signal.SELL
         return Signal.HOLD

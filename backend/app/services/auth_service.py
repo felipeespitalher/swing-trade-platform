@@ -58,8 +58,21 @@ class AuthService:
             return None, error_msg
 
         # Check if user already exists
-        existing_user = db.query(User).filter(User.email == registration_data.email).first()
+        existing_user = db.query(User).filter(User.email == registration_data.email.lower()).first()
         if existing_user:
+            if not existing_user.is_email_verified:
+                # Resend verification email for unverified accounts
+                verification_token = secrets.token_urlsafe(32)
+                existing_user.email_verification_token = verification_token
+                db.commit()
+                EmailService.send_verification_email(
+                    email=existing_user.email,
+                    user_id=str(existing_user.id),
+                    verification_token=verification_token,
+                    first_name=existing_user.first_name,
+                )
+                logger.info(f"Verification email resent for unverified user: {existing_user.email}")
+                return None, "Email already registered but not verified. A new verification email has been sent."
             return None, "Email already registered"
 
         try:

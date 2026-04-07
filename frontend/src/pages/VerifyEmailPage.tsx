@@ -21,7 +21,10 @@ export default function VerifyEmailPage() {
 
     authService
       .verifyEmail(token)
-      .then(() => setStatus('success'))
+      .then(() => {
+        setStatus('success');
+        setTimeout(() => navigate(ROUTES.LOGIN, { replace: true }), 3000);
+      })
       .catch((err: unknown) => {
         const detail =
           (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
@@ -29,7 +32,7 @@ export default function VerifyEmailPage() {
         setErrorMsg(detail);
         setStatus('error');
       });
-  }, [token]);
+  }, [token, navigate]);
 
   if (status === 'loading') {
     return (
@@ -63,7 +66,7 @@ export default function VerifyEmailPage() {
               <div>
                 <h2 className="text-xl font-bold text-foreground">E-mail verificado!</h2>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Sua conta está ativa. Faça login para começar.
+                  Sua conta está ativa. Redirecionando para o login…
                 </p>
               </div>
               <button

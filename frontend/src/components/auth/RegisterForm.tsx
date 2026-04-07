@@ -37,8 +37,14 @@ export function RegisterForm() {
       });
       setSuccessEmail(data.email);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Erro ao criar conta. Tente novamente.';
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      if (detail?.includes('not verified')) {
+        // Account exists but not verified — show success screen (new email was sent)
+        setSuccessEmail(data.email);
+        return;
+      }
+      const message = detail ?? 'Erro ao criar conta. Tente novamente.';
       setApiError(message);
     }
   };

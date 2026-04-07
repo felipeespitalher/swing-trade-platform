@@ -34,14 +34,86 @@ logger = logging.getLogger(__name__)
 
 
 def _run_migrations():
-    """Create all tables using SQLAlchemy metadata."""
+    """Run SQL migrations on startup, skipping unsupported statements gracefully."""
+    import os, re, psycopg2
+    from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+    # Extensions that may not be available on managed PostgreSQL
+    OPTIONAL_EXTENSIONS = {"timescaledb"}
+    # Statements that depend on TimescaleDB
+    SKIP_PATTERNS = [
+        "create_hypertable",
+        "timescaledb_information",
+        "timescaledb.compress",
+        "add_compression_policy",
+        "add_retention_policy",
+    ]
+
+    migrations_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "migrations")
+    if not os.path.isdir(migrations_dir):
+        logger.warning(f"Migrations dir not found: {migrations_dir}")
+        return
+
     try:
-        from app.db.session import engine
-        from app.models import Base
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created/verified")
+        conn = psycopg2.connect(settings.database_url)
+        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        cur = conn.cursor()
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                version INTEGER PRIMARY KEY,
+                filename VARCHAR(255) NOT NULL,
+                applied_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        cur.execute("SELECT version FROM schema_migrations")
+        applied = {row[0] for row in cur.fetchall()}
+
+        def version_of(f):
+            m = re.match(r"V(\d+)__", f)
+            return int(m.group(1)) if m else -1
+
+        files = sorted(
+            [f for f in os.listdir(migrations_dir) if f.endswith(".sql") and version_of(f) > 0],
+            key=version_of,
+        )
+
+        for filename in files:
+            v = version_of(filename)
+            if v in applied:
+                continue
+
+            sql = open(os.path.join(migrations_dir, filename), encoding="utf-8").read()
+            # Split into individual statements
+            statements = [s.strip() for s in sql.split(";") if s.strip()]
+            skipped = 0
+            for stmt in statements:
+                stmt_lower = stmt.lower()
+                # Skip optional extension installs
+                if "create extension" in stmt_lower:
+                    ext = re.search(r'create extension.*?"?(\w+)"?', stmt_lower)
+                    if ext and ext.group(1) in OPTIONAL_EXTENSIONS:
+                        continue
+                # Skip TimescaleDB-specific statements
+                if any(p in stmt_lower for p in SKIP_PATTERNS):
+                    skipped += 1
+                    continue
+                try:
+                    cur.execute(stmt)
+                except Exception as e:
+                    logger.warning(f"  stmt skipped in {filename}: {e}")
+
+            cur.execute(
+                "INSERT INTO schema_migrations (version, filename) VALUES (%s, %s)",
+                (v, filename),
+            )
+            logger.info(f"Migration applied: {filename} (skipped {skipped} TimescaleDB stmts)")
+
+        cur.close()
+        conn.close()
+        logger.info("Migrations complete")
     except Exception as e:
-        logger.error(f"Failed to create tables: {e}")
+        logger.error(f"Migration startup error: {e}")
 
 
 @asynccontextmanager

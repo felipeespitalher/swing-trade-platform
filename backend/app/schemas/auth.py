@@ -120,6 +120,9 @@ class VerificationResponse(BaseModel):
 
     message: str = Field(..., description="Status message")
     user_id: Optional[UUID] = Field(None, description="User ID if successful")
+    access_token: Optional[str] = Field(None, description="JWT access token for auto-login")
+    refresh_token: Optional[str] = Field(None, description="JWT refresh token for auto-login")
+    token_type: str = Field(default="bearer", description="Token type")
 
     class Config:
         """Pydantic config."""
@@ -128,6 +131,9 @@ class VerificationResponse(BaseModel):
             "example": {
                 "message": "Email verified successfully",
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
+                "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                "token_type": "bearer",
             }
         }
 

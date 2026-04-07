@@ -141,7 +141,7 @@ async def verify_email(
         - **message**: Success or error message
         - **user_id**: User ID if verification successful
     """
-    user, error = AuthService.verify_email(db, token)
+    user, error, access_token, refresh_token = AuthService.verify_email(db, token)
 
     if error:
         raise HTTPException(
@@ -152,6 +152,8 @@ async def verify_email(
     return VerificationResponse(
         message="Email verified successfully",
         user_id=user.id,
+        access_token=access_token,
+        refresh_token=refresh_token,
     )
 
 

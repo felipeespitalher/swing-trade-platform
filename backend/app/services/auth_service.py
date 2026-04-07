@@ -176,7 +176,7 @@ class AuthService:
     def verify_email(
         db: Session,
         verification_token: str,
-    ) -> Tuple[Optional[User], Optional[str]]:
+    ) -> Tuple[Optional[User], Optional[str], Optional[str], Optional[str]]:
         """
         Verify a user's email address.
 
@@ -185,9 +185,9 @@ class AuthService:
             verification_token: Email verification token
 
         Returns:
-            Tuple of (User object, error message)
-            Returns (user, None) on success
-            Returns (None, error_message) on failure
+            Tuple of (User, error, access_token, refresh_token)
+            Returns (user, None, access_token, refresh_token) on success
+            Returns (None, error_message, None, None) on failure
         """
         try:
             # Find user by verification token
@@ -197,7 +197,7 @@ class AuthService:
 
             if not user:
                 logger.warning(f"Invalid verification token attempted")
-                return None, "Invalid or expired verification token"
+                return None, "Invalid or expired verification token", None, None
 
             # Mark email as verified
             user.is_email_verified = True
@@ -206,13 +206,16 @@ class AuthService:
             db.commit()
             db.refresh(user)
 
+            access_token = create_access_token(user_id=str(user.id), email=user.email)
+            refresh_token = create_refresh_token(user_id=str(user.id), email=user.email)
+
             logger.info(f"Email verified for user: {user.email}")
-            return user, None
+            return user, None, access_token, refresh_token
 
         except Exception as e:
             db.rollback()
             logger.error(f"Error verifying email: {e}")
-            return None, "Email verification failed. Please try again."
+            return None, "Email verification failed. Please try again.", None, None
 
     @staticmethod
     def refresh_access_token(

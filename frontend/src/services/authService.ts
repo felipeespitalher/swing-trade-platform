@@ -77,8 +77,9 @@ export const authService = {
     return response.data;
   },
 
-  async verifyEmail(token: string): Promise<void> {
-    await api.get(`/api/auth/verify/${token}`);
+  async verifyEmail(token: string): Promise<{ access_token: string; refresh_token: string }> {
+    const response = await api.get<{ access_token: string; refresh_token: string }>(`/api/auth/verify/${token}`);
+    return response.data;
   },
 
   async forgotPassword(email: string): Promise<void> {

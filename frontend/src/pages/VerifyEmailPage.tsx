@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -5,6 +6,9 @@ import { CheckCircle2, XCircle, Loader2, BarChart2 } from 'lucide-react';
 import { ROUTES } from '@/config/routes';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { authService } from '@/services/authService';
+import { useAuthStore } from '@/stores/authStore';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 type Status = 'loading' | 'success' | 'error' | 'missing-token';
 
@@ -12,6 +16,7 @@ export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token') ?? '';
+  const setAuth = useAuthStore((s) => s.setAuth);
 
   const [status, setStatus] = useState<Status>(token ? 'loading' : 'missing-token');
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -21,7 +26,35 @@ export default function VerifyEmailPage() {
 
     authService
       .verifyEmail(token)
-      .then(() => {
+      .then(async (data) => {
+        const { access_token, refresh_token } = data ?? {};
+
+        if (access_token && refresh_token) {
+          try {
+            // Usar axios direto com o token explícito — evita o interceptor de 401
+            const { data: u } = await axios.get(`${API_BASE}/api/users/me`, {
+              headers: { Authorization: `Bearer ${access_token}` },
+            });
+            setAuth(
+              {
+                id: u.id,
+                email: u.email,
+                full_name: `${u.first_name} ${u.last_name}`.trim(),
+                timezone: u.timezone,
+                risk_limit_pct: u.risk_limit_pct,
+                is_active: u.is_active ?? u.is_email_verified,
+              },
+              access_token,
+              refresh_token,
+            );
+            navigate(ROUTES.DASHBOARD, { replace: true });
+            return;
+          } catch {
+            // getMe falhou — cai no fluxo de login manual
+          }
+        }
+
+        // Fallback: mostra sucesso e redireciona para login
         setStatus('success');
         setTimeout(() => navigate(ROUTES.LOGIN, { replace: true }), 3000);
       })
@@ -32,7 +65,7 @@ export default function VerifyEmailPage() {
         setErrorMsg(detail);
         setStatus('error');
       });
-  }, [token, navigate]);
+  }, [token, navigate, setAuth]);
 
   if (status === 'loading') {
     return (

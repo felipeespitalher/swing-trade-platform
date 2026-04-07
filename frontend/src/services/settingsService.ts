@@ -62,8 +62,10 @@ export const settingsService = {
   },
 
   async listExchangeKeys(): Promise<ExchangeKey[]> {
-    const response = await api.get('/api/exchange-keys');
-    return response.data;
+    const response = await api.get<{ keys: ExchangeKey[]; total: number } | ExchangeKey[]>('/api/exchange-keys');
+    // Backend returns { keys: [], total: N } — extract the array
+    if (Array.isArray(response.data)) return response.data;
+    return response.data.keys ?? [];
   },
 
   async addExchangeKey(data: {

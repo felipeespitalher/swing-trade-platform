@@ -16,7 +16,7 @@
     "@tailwindcss/forms": "^0.5.11",
     "@tanstack/react-query": "^5.96.1",
     "autoprefixer": "^10.4.27",
-    "axios": "^1.14.0",
+    "axios": "^1.15.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^11.18.2",

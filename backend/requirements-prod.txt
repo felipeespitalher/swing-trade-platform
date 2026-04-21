@@ -14,7 +14,7 @@ cryptography==41.0.7
 passlib[bcrypt]==1.7.4
 
 # Environment and config
-python-dotenv==1.0.0
+python-dotenv==1.2.2
 
 # Data validation
 pydantic==2.5.0
